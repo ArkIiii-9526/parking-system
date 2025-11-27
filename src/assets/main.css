@@ -1,35 +1,193 @@
-@import './base.css';
+:root {
+  /* 主题颜色变量 - 智慧停车系统主题 */
+  --el-color-primary: #4CAF50; /* 主色调：绿色，象征智慧、环保 */
+  --el-color-success: #67C23A; /* 成功色 */
+  --el-color-warning: #E6A23C; /* 警告色 */
+  --el-color-danger: #F56C6C; /* 危险色 */
+  --el-color-info: #909399; /* 信息色 */
+  
+  /* 次要主题色 - 用于渐变和辅助 */
+  --el-color-secondary: #2196F3; /* 次要色调：蓝色 */
+  
+  /* 文字颜色 */
+  --el-text-primary-color: rgba(0, 0, 0, 0.85);
+  --el-text-regular-color: rgba(0, 0, 0, 0.65);
+  --el-text-secondary-color: rgba(0, 0, 0, 0.45);
+  --el-text-placeholder-color: rgba(0, 0, 0, 0.25);
+  --el-text-disabled-color: rgba(0, 0, 0, 0.25);
+  
+  /* 边框颜色 */
+  --el-border-color-base: #DCDFE6;
+  --el-border-color-light: #E4E7ED;
+  --el-border-color-lighter: #EBEEF5;
+  --el-border-color-extra-light: #F2F6FC;
+  
+  /* 背景颜色 */
+  --el-bg-color: #F5F7FA;
+  --el-bg-color-page: #F5F7FA;
+  --el-bg-color-overlay: #FFFFFF;
+}
+
+/* 全局重置样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--el-text-primary-color);
+  background-color: var(--el-bg-color);
+  height: 100%;
+  overflow-x: hidden;
+}
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+  height: 100%;
+  width: 100%;
+  position: relative;
 }
 
-a,
-.green {
+/* 链接样式 */
+a {
+  color: var(--el-color-primary);
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+  transition: color 0.3s ease;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+a:hover {
+  color: var(--el-color-primary);
+  opacity: 0.85;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 表单元素全局样式 */
+input, button, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* 按钮全局样式增强 */
+.el-button {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.el-button:hover {
+  transform: translateY(-1px);
+}
+
+/* 卡片全局样式增强 */
+.el-card {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* 输入框全局样式增强 */
+.el-input__wrapper {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+/* 渐变背景通用类 */
+.gradient-bg-primary {
+  background: linear-gradient(135deg, var(--el-color-primary), var(--el-color-secondary));
+}
+
+.gradient-bg-secondary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 动画类 */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active, .slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from {
+  transform: translateY(20px);
+  opacity: 0;
+}
+
+.slide-up-leave-to {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+
+/* 响应式工具类 */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+/* 加载动画 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+/* 内容容器 */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* 阴影效果 */
+.shadow-sm {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 毛玻璃效果 */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
