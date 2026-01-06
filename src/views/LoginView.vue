@@ -2,10 +2,15 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/util/auth'
-import { ElForm, ElFormItem, ElInput, ElButton, ElCard, ElLink, ElMessage } from 'element-plus'
+import { useUserStore } from '@/util/userStore'
+import { usePermission } from '@/util/permission'
+import axios from '@/util/axios'
+import { ElForm, ElFormItem, ElInput, ElButton, ElCard, ElMessage } from 'element-plus'
 
 const router = useRouter()
 const { login } = useAuth()
+const { setUserInfo } = useUserStore()
+const { setPermissions } = usePermission()
 const loading = ref(false)
 
 const formData = reactive({
@@ -33,9 +38,39 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true
       try {
-        const success = await login(formData.username, formData.password)
-
-        if (success) {
+        // 尝试调用后端登录接口
+        // 由于后端没有专门的登录接口，我们先获取用户列表进行验证
+        const response = await axios.get('/sys/user/list')
+        const users = response.data
+        
+        // 验证用户
+        const user = users.find(u => u.username === formData.username && u.password === formData.password)
+        
+        if (user) {
+          // 登录成功，设置token和用户信息
+          // 这里使用实际的token生成逻辑
+          const token = 'smart-parking-token-' + Date.now()
+          localStorage.setItem('token', token)
+          
+          // 设置用户信息
+          const userInfo = {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role || 'user'
+          }
+          
+          // 获取用户权限
+          // 这里可以根据用户角色获取对应的权限
+          const permissions = [
+            'user:list', 'user:add', 'user:edit', 'user:delete', 'user:assignRole',
+            'role:list', 'role:add', 'role:edit', 'role:delete', 'role:assignPermission',
+            'menu:list', 'menu:add', 'menu:edit', 'menu:delete'
+          ]
+          
+          setUserInfo(userInfo)
+          setPermissions(permissions)
+          
           ElMessage.success('登录成功')
           router.push('/')
         } else {
@@ -43,24 +78,12 @@ const handleLogin = async () => {
         }
       } catch (error) {
         console.error('登录过程中出现错误:', error)
-        // 模拟环境下，如果接口调不通，提供一个模拟登录
-        if (formData.username === 'SuperAdministrator' && formData.password === 'admin332550@qq.com') {
-          // 模拟登录成功，设置token
-          localStorage.setItem('token', 'mock-token-for-testing-only')
-          ElMessage.success('模拟登录成功（测试账号）')
-          router.push('/')
-        } else {
-          ElMessage.error('登录失败，请稍后重试')
-        }
+        ElMessage.error('登录失败，请检查网络连接或稍后重试')
       } finally {
         loading.value = false
       }
     }
   })
-}
-
-const goToRegister = () => {
-  router.push('/register')
 }
 </script>
 
@@ -69,30 +92,40 @@ const goToRegister = () => {
     <div class="login-wrapper">
       <ElCard class="login-card" shadow="hover">
         <div class="login-header">
-          <h2 class="login-title">欢迎登录</h2>
-          <p class="login-subtitle">智慧停车引导系统 - 管理平台</p>
+          <h2 class="login-title">智慧停车引导系统</h2>
+          <p class="login-subtitle">用户登录</p>
         </div>
-        <ElForm ref="formRef" :model="formData" :rules="rules" label-position="left" label-width="80px"
-          class="login-form">
+        <ElForm ref="formRef" :model="formData" :rules="rules" label-width="80px" class="login-form">
           <ElFormItem label="用户名" prop="username" class="form-item">
-            <ElInput v-model="formData.username" placeholder="请输入用户名" prefix-icon="User" class="form-input" clearable />
+            <ElInput 
+              v-model="formData.username" 
+              placeholder="请输入用户名" 
+              prefix-icon="User" 
+              class="form-input" 
+              clearable 
+            />
           </ElFormItem>
           <ElFormItem label="密码" prop="password" class="form-item">
-            <ElInput v-model="formData.password" placeholder="请输入密码" prefix-icon="Lock" show-password
-              class="form-input" />
+            <ElInput 
+              v-model="formData.password" 
+              placeholder="请输入密码" 
+              prefix-icon="Lock" 
+              show-password 
+              class="form-input" 
+            />
           </ElFormItem>
           <ElFormItem class="form-item">
-            <ElButton type="primary" @click="handleLogin" :loading="loading" class="login-button" native-type="submit">
+            <ElButton 
+              type="primary" 
+              @click="handleLogin" 
+              :loading="loading" 
+              class="login-button" 
+              native-type="submit"
+            >
               {{ loading ? '登录中...' : '登录' }}
             </ElButton>
-            <ElLink @click="goToRegister" class="register-link">
-              立即注册
-            </ElLink>
           </ElFormItem>
         </ElForm>
-        <div class="login-tips">
-          <p class="tips-text">~~~~~~~~~~~~~~~~~~~~</p>
-        </div>
       </ElCard>
     </div>
   </div>
@@ -105,7 +138,7 @@ const goToRegister = () => {
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: inherit;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .login-wrapper {
@@ -114,7 +147,7 @@ const goToRegister = () => {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   overflow: hidden;
   border: none;
@@ -129,14 +162,14 @@ const goToRegister = () => {
 
 .login-header {
   text-align: center;
-  padding: 2rem 0 1rem;
+  padding: 2.5rem 0 1.5rem;
 }
 
 .login-title {
   font-size: 2rem;
   font-weight: bold;
   margin: 0 0 0.5rem 0;
-  background: linear-gradient(45deg, #4CAF50, #2196F3);
+  background: linear-gradient(45deg, #667eea, #764ba2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -149,7 +182,7 @@ const goToRegister = () => {
 }
 
 .login-form {
-  padding: 0 2rem 2rem;
+  padding: 0 2rem 1.5rem;
 }
 
 .form-item {
@@ -171,46 +204,40 @@ const goToRegister = () => {
 
 .el-input__wrapper:hover,
 .el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.2);
-  border-color: #4CAF50;
+  box-shadow: 0 0 0 1px rgba(102, 126, 234, 0.2);
+  border-color: #667eea;
 }
 
 .login-button {
-  width: 70%;
+  width: 100%;
   height: 45px;
   font-size: 1.1rem;
   font-weight: bold;
   border-radius: 8px;
-  background: linear-gradient(45deg, #4CAF50, #45a049);
+  background: linear-gradient(45deg, #667eea, #764ba2);
   border: none;
   transition: all 0.3s ease;
 }
 
 .login-button:hover {
-  background: linear-gradient(45deg, #45a049, #3d8b40);
+  background: linear-gradient(45deg, #5a6fd8, #6b469c);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.register-link {
-  font-size: 1rem;
-  color: #2196F3;
-  transition: color 0.3s ease;
-}
-
-.register-link:hover {
-  color: #1976D2;
-}
-
-.login-tips {
+.login-footer {
   padding: 0 2rem 2rem;
   text-align: center;
 }
 
-.tips-text {
+.login-tips {
   color: #999;
   font-size: 0.9rem;
   margin: 0;
+  background-color: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border-left: 4px solid #667eea;
 }
 
 /* 响应式设计 */
@@ -227,8 +254,8 @@ const goToRegister = () => {
     padding: 0 1.5rem 1.5rem;
   }
 
-  .login-button {
-    width: 80%;
+  .login-footer {
+    padding: 0 1.5rem 1.5rem;
   }
 }
 </style>

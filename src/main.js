@@ -11,6 +11,9 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 // 引入ElementPlus主题颜色变量（可以自定义）
 import './assets/main.css'
 
+// 引入权限指令
+import { setupPermissionDirective } from './util/permissionDirective'
+
 const app = createApp(App)
 
 // 注册所有ElementPlus图标
@@ -27,6 +30,9 @@ app.use(ElementPlus, {
 
 // 使用路由
 app.use(router)
+
+// 注册权限指令
+setupPermissionDirective(app)
 
 // 挂载应用
 app.mount('#app')
