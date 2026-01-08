@@ -1,0 +1,50 @@
+$primary-color: #409EFF;
+$success-color: #67C23A;
+$warning-color: #E6A23C;
+$danger-color: #F56C6C;
+$info-color: #909399;
+
+$bg-color: #F5F7FA;
+$white: #FFFFFF;
+
+$text-primary: #303133;
+$text-regular: #606266;
+$text-secondary: #909399;
+$text-placeholder: #C0C4CC;
+
+$border-color: #E4E7ED;
+$border-color-light: #EBEEF5;
+$border-color-lighter: #F2F6FC;
+
+$font-size-base: 14px;
+$font-size-small: 12px;
+$font-size-large: 16px;
+
+$border-radius-base: 4px;
+$border-radius-small: 2px;
+$border-radius-large: 8px;
+
+$sidebar-width: 220px;
+$sidebar-collapse-width: 64px;
+$header-height: 64px;
+$tags-view-height: 34px;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin card-hover {
+  transition: box-shadow 0.3s;
+  
+  &:hover {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  }
+}

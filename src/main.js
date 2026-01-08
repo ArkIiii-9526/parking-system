@@ -1,38 +1,26 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import 'nprogress/nprogress.css'
+
 import App from './App.vue'
 import router from './router'
-
-// 引入ElementPlus组件库
-import ElementPlus from 'element-plus'
-// 引入ElementPlus默认样式
-import 'element-plus/dist/index.css'
-// 引入ElementPlus图标
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
-// 引入ElementPlus主题颜色变量（可以自定义）
-import './assets/main.css'
-
-// 引入权限指令
-import { setupPermissionDirective } from './util/permissionDirective'
+import '@/styles/index.scss'
+import permissionDirective from '@/directive/permission'
 
 const app = createApp(App)
 
-// 注册所有ElementPlus图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 
-// 使用ElementPlus组件库
-app.use(ElementPlus, {
-  // 配置ElementPlus
-  size: 'default', // 默认尺寸
-  zIndex: 3000 // 弹出层的默认z-index
-})
+app.directive('permission', permissionDirective)
 
-// 使用路由
+app.use(createPinia())
 app.use(router)
+app.use(ElementPlus, { locale: zhCn })
 
-// 注册权限指令
-setupPermissionDirective(app)
-
-// 挂载应用
 app.mount('#app')

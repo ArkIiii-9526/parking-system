@@ -1,0 +1,153 @@
+@use 'sass:color';
+
+:root {
+  --primary-color: #409EFF;
+  --success-color: #67C23A;
+  --warning-color: #E6A23C;
+  --danger-color: #F56C6C;
+  --info-color: #909399;
+  
+  --bg-color: #F5F7FA;
+  --white: #FFFFFF;
+  
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+  --text-placeholder: #C0C4CC;
+  
+  --border-color: #E4E7ED;
+  --border-color-light: #EBEEF5;
+  --border-color-lighter: #F2F6FC;
+  
+  --font-size-base: 14px;
+  --font-size-small: 12px;
+  --font-size-large: 16px;
+  
+  --border-radius-base: 4px;
+  --border-radius-small: 2px;
+  --border-radius-large: 8px;
+  
+  --sidebar-width: 220px;
+  --sidebar-collapse-width: 64px;
+  --header-height: 64px;
+  --tags-view-height: 34px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+a {
+  text-decoration: none;
+  color: var(--primary-color);
+  
+  &:hover {
+    color: color.adjust(#409EFF, $lightness: 10%);
+  }
+}
+
+.el-card {
+  border-radius: var(--border-radius-large);
+  border: 1px solid var(--border-color-light);
+  
+  &__header {
+    border-bottom: 1px solid var(--border-color-light);
+    padding: 14px 20px;
+    font-weight: 500;
+  }
+}
+
+.el-button {
+  border-radius: var(--border-radius-base);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--border-radius-base);
+}
+
+.el-table {
+  border-radius: var(--border-radius-base);
+  overflow: hidden;
+  
+  th.el-table__cell {
+    background-color: #fafafa;
+  }
+}
+
+.el-pagination {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.fade-transform-enter-active,
+.fade-transform-leave-active {
+  transition: all 0.3s;
+}
+
+.fade-transform-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.breadcrumb-enter-active,
+.breadcrumb-leave-active {
+  transition: all 0.3s;
+}
+
+.breadcrumb-enter-from,
+.breadcrumb-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+  
+  &:hover {
+    background: #a8a8a8;
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
