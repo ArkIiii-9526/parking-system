@@ -163,8 +163,8 @@ async function loadDashboardData() {
     // 获取停车场列表
     const parkingRes = await getParkingPage({ pageNo: 1, pageSize: 100 })
     if (parkingRes.code === 200) {
-      const parkings = parkingRes.data.records || []
-      stats.totalParkings = parkingRes.data.total || 0
+      const parkings = parkingRes.data?.records || []
+      stats.totalParkings = parkingRes.data?.total || 0
       
       stats.totalSpaces = parkings.reduce((sum, p) => sum + (p.totalSpaces || 0), 0)
       stats.availableSpaces = parkings.reduce((sum, p) => sum + (p.availableSpaces || 0), 0)
@@ -172,34 +172,49 @@ async function loadDashboardData() {
       if (stats.totalSpaces > 0) {
         stats.usageRate = Math.round(((stats.totalSpaces - stats.availableSpaces) / stats.totalSpaces) * 100)
       }
+      
+      // 获取车辆记录
+      if (parkings.length > 0) {
+        try {
+          const recordsRes = await getVehicleRecordsByParking(parkings[0].id, { pageNo: 1, pageSize: 10 })
+          if (recordsRes.code === 200) {
+            recentRecords.value = (recordsRes.data?.records || []).map(record => ({
+              ...record,
+              parkingName: parkings.find(p => p.id === record.parkingId)?.name || ''
+            }))
+          }
+        } catch (e) {
+          console.error('获取车辆记录失败:', e)
+          // 不显示错误提示，避免影响用户体验
+        }
+      }
     }
     
     // 获取营收数据
+    let formattedDate = ''
     try {
-      const revenueRes = await getDailyStatistics()
+      // 使用YYYY-MM-DD格式的日期，符合后端API预期
+      const today = new Date()
+      formattedDate = today.toISOString().split('T')[0]
+      // 确保date参数是字符串类型，避免JavaScript将其解析为数字表达式
+      const revenueRes = await getDailyStatistics({ date: String(formattedDate) })
       if (revenueRes.code === 200 && revenueRes.data) {
         stats.todayRevenue = revenueRes.data.totalAmount || 0
       }
     } catch (e) {
-      console.error('获取营收数据失败:', e.response?.status, e.response?.config?.url, e)
-    }
-    
-    // 获取车辆记录
-    if (parkingRes.data.records.length > 0) {
-      try {
-        const recordsRes = await getVehicleRecordsByParking(parkingRes.data.records[0].id, { pageNo: 1, pageSize: 10 })
-        if (recordsRes.code === 200) {
-          recentRecords.value = (recordsRes.data.records || []).map(record => ({
-            ...record,
-            parkingName: parkingRes.data.records.find(p => p.id === record.parkingId)?.name || ''
-          }))
-        }
-      } catch (e) {
-        console.error('获取车辆记录失败:', e.response?.status, e.response?.config?.url, e)
+      console.error('获取营收数据失败:', e)
+      console.error('请求参数:', { date: formattedDate })
+      // 添加更详细的错误信息，方便调试
+      if (e.response) {
+        console.error('响应状态:', e.response.status)
+        console.error('响应数据:', e.response.data)
+      } else if (e.request) {
+        console.error('无响应数据，请求可能未到达后端')
       }
     }
   } catch (error) {
-    console.error('加载数据失败:', error.response?.status, error.response?.config?.url, error)
+    console.error('加载数据失败:', error)
+    // 不显示错误提示，避免影响用户体验
   }
 }
 
@@ -222,7 +237,8 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .dashboard-container {
-  padding: 0;
+  padding: 0 20px;
+  overflow: hidden;
 }
 
 .stat-card {

@@ -81,7 +81,7 @@ function handleLogin() {
       
       const redirect = route.query.redirect || '/'
       router.push(redirect)
-    } catch (error) {
+    } catch (_) {
       // 登录失败逻辑
     } finally {
       loading.value = false

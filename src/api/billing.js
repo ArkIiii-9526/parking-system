@@ -17,10 +17,15 @@ export function getBillingRecordsPage(params) {
 }
 
 export function getDailyStatistics(params) {
+  // 确保date参数是字符串类型
+  const formattedParams = {
+    ...params,
+    date: typeof params.date === 'string' ? params.date : String(params.date)
+  }
   return request({
     url: '/billing/records/statistics/daily',
     method: 'get',
-    params
+    params: formattedParams
   })
 }
 

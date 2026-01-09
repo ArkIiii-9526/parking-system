@@ -62,32 +62,7 @@ const routes = [
         component: () => import('@/views/billing-rule/index.vue'),
         meta: { title: '计费规则管理', icon: 'Setting' }
       },
-      {
-        path: 'system',
-        name: 'System',
-        redirect: '/system/user',
-        meta: { title: '系统管理', icon: 'Setting' },
-        children: [
-          {
-            path: 'user',
-            name: 'SystemUser',
-            component: () => import('@/views/system/user.vue'),
-            meta: { title: '用户管理', icon: 'User' }
-          },
-          {
-            path: 'role',
-            name: 'SystemRole',
-            component: () => import('@/views/system/role.vue'),
-            meta: { title: '角色管理', icon: 'UserFilled' }
-          },
-          {
-            path: 'permission',
-            name: 'SystemPermission',
-            component: () => import('@/views/system/permission.vue'),
-            meta: { title: '权限管理', icon: 'Lock' }
-          }
-        ]
-      }
+      {        path: 'system',        name: 'System',        redirect: '/system/user',        meta: { title: '系统管理', icon: 'Setting' },        children: [          {            path: 'user',            name: 'SystemUser',            component: () => import('@/views/system/user-manage.vue'),            meta: { title: '用户管理', icon: 'User' }          },          {            path: 'role',            name: 'SystemRole',            component: () => import('@/views/system/role-manage.vue'),            meta: { title: '角色管理', icon: 'UserFilled' }          },          {            path: 'permission',            name: 'SystemPermission',            component: () => import('@/views/system/permission-manage.vue'),            meta: { title: '权限管理', icon: 'Lock' }          }        ]      }
     ]
   }
 ]
@@ -106,15 +81,45 @@ export function resetRouter() {
   router.matcher = newRouter.matcher
 }
 
-export function filterAsyncRoutes(routes) {
+export function filterAsyncRoutes(asyncRoutes, menus) {
   const res = []
-  routes.forEach((route) => {
+
+  asyncRoutes.forEach(route => {
     const tmp = { ...route }
-    if (tmp.children) {
-      tmp.children = filterAsyncRoutes(tmp.children)
+    // 检查当前路由是否在菜单列表中
+    const menuItem = menus.find(item => item.path === tmp.path)
+    if (menuItem) {
+      // 如果有children，递归过滤
+      if (tmp.children && tmp.children.length) {
+        tmp.children = filterAsyncRoutes(tmp.children, menuItem.children || [])
+      }
+      // 合并菜单数据和路由数据
+      tmp.meta = { ...tmp.meta, ...menuItem.meta }
+      tmp.hidden = menuItem.hidden || tmp.hidden
+      res.push(tmp)
     }
-    res.push(tmp)
   })
+
+  // 检查是否有菜单数据未匹配到本地路由
+  const unmatchedMenus = []
+  const checkUnmatchedMenus = (menuList, parentPath = '') => {
+    menuList.forEach(menu => {
+      const fullPath = parentPath === '' ? menu.path : `${parentPath}/${menu.path}`
+      const isMatched = asyncRoutes.some(route => route.path === fullPath)
+      if (!isMatched) {
+        unmatchedMenus.push(fullPath)
+      }
+      if (menu.children && menu.children.length) {
+        checkUnmatchedMenus(menu.children, fullPath)
+      }
+    })
+  }
+
+  checkUnmatchedMenus(menus)
+  if (unmatchedMenus.length) {
+    console.warn('以下菜单路径未匹配到本地路由配置:', unmatchedMenus)
+  }
+
   return res
 }
 

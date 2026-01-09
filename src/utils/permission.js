@@ -1,3 +1,5 @@
+import { useUserStore } from '@/stores/user'
+
 export function checkPermission(permission) {
   const userStore = useUserStore()
   const { permissions } = userStore

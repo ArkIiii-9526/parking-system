@@ -226,9 +226,14 @@ async function loadParkingList() {
     const res = await getParkingPage({ pageNo: 1, pageSize: 100 })
     if (res.code === 200) {
       parkingList.value = res.data.records || []
+    } else {
+      ElMessage.error(res.msg || '加载停车场列表失败')
+      parkingList.value = []
     }
   } catch (error) {
     console.error('加载停车场列表失败:', error)
+    ElMessage.error('网络错误，加载停车场列表失败')
+    parkingList.value = []
   }
 }
 
@@ -259,15 +264,19 @@ async function loadData() {
     
     if (parkingList.value.length > 0) {
       params.parkingId = parkingList.value[0].id
-    }
-    
-    const res = await getVehicleRecordsByParking(params.parkingId, params)
-    if (res.code === 200) {
-      tableData.value = (res.data.records || []).map(record => ({
-        ...record,
-        parkingName: parkingList.value.find(p => p.id === record.parkingId)?.name || ''
-      }))
-      pagination.total = res.data.total || 0
+      
+      const res = await getVehicleRecordsByParking(params.parkingId, params)
+      if (res.code === 200) {
+        tableData.value = (res.data.records || []).map(record => ({
+          ...record,
+          parkingName: parkingList.value.find(p => p.id === record.parkingId)?.name || ''
+        }))
+        pagination.total = res.data.total || 0
+      }
+    } else {
+      // 当没有停车场数据时，清空表格
+      tableData.value = []
+      pagination.total = 0
     }
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -379,9 +388,9 @@ function handleCurrentChange(page) {
 const entryFormRef = ref(null)
 const exitFormRef = ref(null)
 
-onMounted(() => {
-  loadParkingList()
-  loadData()
+onMounted(async () => {
+  await loadParkingList()
+  await loadData()
 })
 </script>
 

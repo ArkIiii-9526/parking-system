@@ -22,6 +22,10 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/eslint-config-standard": "^9.0.1",
+    "eslint": "^9.39.2",
+    "eslint-plugin-vue": "^10.6.2",
+    "globals": "^17.0.0",
     "sass": "^1.97.2",
     "unplugin-auto-import": "^0.17.5",
     "unplugin-vue-components": "^0.26.0",

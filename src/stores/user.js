@@ -19,12 +19,20 @@ export const useUserStore = defineStore('user', () => {
     try {
       const res = await getUserInfo()
       if (res.code === 200) {
-        user.value = res.data.user
-        roles.value = res.data.roles || []
-        permissions.value = res.data.permissions || []
-        menus.value = res.data.menus || []
+        // 检查res.data是否是数组（菜单数据直接返回数组的情况）
+        if (Array.isArray(res.data)) {
+          // 如果是数组，说明直接返回了菜单数据
+          menus.value = res.data || []
+          // 保留现有用户信息，不设置为null
+        } else {
+          // 否则按正常格式处理
+          user.value = res.data.user
+          roles.value = res.data.roles || []
+          permissions.value = res.data.permissions || []
+          menus.value = res.data.menus || []
+        }
         setUserInfo({
-          user: res.data.user,
+          user: user.value,
           roles: roles.value,
           permissions: permissions.value,
           menus: menus.value

@@ -106,6 +106,7 @@ const emit = defineEmits(['collapse'])
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  box-sizing: border-box;
 }
 
 .header-left {

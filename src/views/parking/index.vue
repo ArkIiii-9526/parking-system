@@ -222,7 +222,7 @@ async function handleDetail(row) {
       Object.assign(formData, res.data)
       dialogVisible.value = true
     }
-  } catch (error) {
+  } catch (_) {
     ElMessage.error('获取详情失败')
   }
 }
@@ -235,7 +235,7 @@ async function handleEdit(row) {
       Object.assign(formData, res.data)
       dialogVisible.value = true
     }
-  } catch (error) {
+  } catch (_) {
     ElMessage.error('获取详情失败')
   }
 }
@@ -254,7 +254,7 @@ function handleDelete(row) {
       } else {
         ElMessage.error(res.msg || '删除失败')
       }
-    } catch (error) {
+    } catch (_) {
       ElMessage.error('删除失败')
     }
   })

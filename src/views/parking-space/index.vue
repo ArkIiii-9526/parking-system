@@ -157,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getParkingSpacePage, createParkingSpace, updateParkingSpace, deleteParkingSpace, reserveSpace, releaseSpace, getParkingSpacesByParking } from '@/api/parkingSpace'
 import { getParkingPage } from '@/api/parking'
@@ -224,6 +224,7 @@ async function loadParkingList() {
     }
   } catch (error) {
     console.error('加载停车场列表失败:', error)
+    // 不显示错误提示，避免影响用户体验
   }
 }
 
@@ -332,7 +333,7 @@ function handleDelete(row) {
       } else {
         ElMessage.error(res.msg || '删除失败')
       }
-    } catch (error) {
+    } catch (_) {
       ElMessage.error('删除失败')
     }
   })

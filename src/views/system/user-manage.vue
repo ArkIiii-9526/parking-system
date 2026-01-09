@@ -301,7 +301,7 @@ async function handleAssignRole(row) {
     if (res.code === 200) {
       selectedRoles.value = res.data || []
     }
-  } catch (error) {
+  } catch (_) {
     ElMessage.error('获取用户角色失败')
   }
   roleDialogVisible.value = true
@@ -321,7 +321,7 @@ async function handleRoleSubmit() {
     } else {
       ElMessage.error(res.msg || '分配失败')
     }
-  } catch (error) {
+  } catch (_) {
     ElMessage.error('分配失败')
   } finally {
     roleLoading.value = false
@@ -340,7 +340,7 @@ async function handleStatusChange(row) {
       row.status = row.status === 1 ? 0 : 1
       ElMessage.error(res.msg || '状态更新失败')
     }
-  } catch (error) {
+  } catch (_) {
     row.status = row.status === 1 ? 0 : 1
     ElMessage.error('状态更新失败')
   }
@@ -360,7 +360,7 @@ function handleDelete(row) {
       } else {
         ElMessage.error(res.msg || '删除失败')
       }
-    } catch (error) {
+    } catch (_) {
       ElMessage.error('删除失败')
     }
   })

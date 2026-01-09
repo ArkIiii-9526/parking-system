@@ -1,7 +1,6 @@
 import router from './index'
 import NProgress from 'nprogress'
 import { getToken } from '@/utils/token'
-import { getUserInfo } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 
 const whiteList = ['/login']
@@ -25,7 +24,9 @@ router.beforeEach(async (to, from, next) => {
         const { useUserStore } = userStore
         const store = useUserStore()
         
-        if (store.roles && store.roles.length > 0) {
+        // 检查是否已经获取过用户信息，而不是依赖roles的长度
+        // 因为API可能只返回菜单数据（数组格式），此时roles会是空数组
+        if (store.menus && store.menus.length > 0) {
           next()
         } else {
           await store.getUserInfo()
@@ -51,7 +52,7 @@ router.beforeEach(async (to, from, next) => {
   }
 })
 
-router.afterEach((to) => {
+router.afterEach(() => {
   NProgress.done()
 })
 

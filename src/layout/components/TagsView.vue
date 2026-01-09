@@ -171,7 +171,7 @@ onMounted(() => {
     border-radius: 4px;
     
     &:first-of-type {
-      margin-left: 0;
+      margin-left: 10px;
     }
     
     &.active {

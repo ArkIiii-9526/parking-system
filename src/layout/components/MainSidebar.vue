@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { filterAsyncRoutes } from '@/router'
@@ -67,6 +67,9 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const menuRoutes = ref([])
+
+// 获取本地路由配置中的主路由children
+const localRoutes = router.getRoutes().find(route => route.path === '/')?.children || []
 
 const activeMenu = computed(() => {
   const { meta, path } = route
@@ -83,18 +86,29 @@ function resolvePath(basePath, path) {
   return basePath === '/' ? `/${path}` : `${basePath}/${path}`
 }
 
-onMounted(async () => {
+function updateMenus() {
   if (userStore.menus && userStore.menus.length > 0) {
-    const accessedRoutes = filterAsyncRoutes(userStore.menus)
-    accessedRoutes.forEach(item => {
-      if (item.path === '/') {
-        item.children = item.children || []
-      }
-    })
+    // 使用本地路由和后端菜单数据进行匹配过滤
+    const accessedRoutes = filterAsyncRoutes(localRoutes, userStore.menus)
     menuRoutes.value = accessedRoutes
-    router.addRoute(accessedRoutes[0])
+  } else {
+    // 如果没有后端菜单数据，直接使用本地路由作为菜单
+    menuRoutes.value = localRoutes
   }
+}
+
+onMounted(async () => {
+  updateMenus()
 })
+
+// 监听菜单数据变化，实时更新菜单
+watch(
+  () => userStore.menus,
+  () => {
+    updateMenus()
+  },
+  { deep: true }
+)
 </script>
 
 <style lang="scss" scoped>

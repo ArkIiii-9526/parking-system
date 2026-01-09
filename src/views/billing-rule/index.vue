@@ -277,7 +277,7 @@ function handleDelete(row) {
       } else {
         ElMessage.error(res.msg || '删除失败')
       }
-    } catch (error) {
+    } catch (_) {
       ElMessage.error('删除失败')
     }
   })

@@ -26,7 +26,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": {}
 }
 ```
@@ -56,14 +56,14 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "登录成功",
+  "message": "登录成功",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "userId": 1,
       "username": "admin",
       "nickname": "管理员",
-      "userType": 1,
+      "userType": "ADMIN",
       "status": 1
     }
   }
@@ -77,7 +77,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "登出成功",
+  "message": "登出成功",
   "data": null
 }
 ```
@@ -90,7 +90,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "Token刷新成功",
+  "message": "Token刷新成功",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
@@ -103,7 +103,7 @@ http://服务器地址:8076/api/具体接口路径
 
 | 接口地址 | 请求方法 | 功能描述 | 权限要求 |
 |---------|---------|---------|---------|
-| `/api/parkings/page` | GET | 分页查询停车场 | parking:view |
+| `/api/parkings/page` | GET | 分页查询停车场 | parking:list |
 | `/api/parkings/{id}` | GET | 获取停车场详情 | parking:view |
 | `/api/parkings` | POST | 新增停车场 | parking:add |
 | `/api/parkings` | PUT | 更新停车场 | parking:edit |
@@ -111,7 +111,7 @@ http://服务器地址:8076/api/具体接口路径
 | `/api/parkings/nearby` | GET | 根据经纬度查询附近停车场 | 无 |
 | `/api/parkings/{id}/statistics` | GET | 获取停车场车位统计 | parking:view |
 
-#### 3.1.1 分页查询停车场
+#### 4.1.1 分页查询停车场
 **请求参数：**
 - pageNo: 页码（默认1）
 - pageSize: 每页条数（默认10）
@@ -122,7 +122,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": {
     "records": [
       {
@@ -143,22 +143,22 @@ http://服务器地址:8076/api/具体接口路径
 }
 ```
 
-### 3.2 停车位管理
+### 4.2 停车位管理
 
 | 接口地址 | 请求方法 | 功能描述 | 权限要求 |
 |---------|---------|---------|---------|
-| `/api/parking-spaces/page` | GET | 分页查询停车位 | parkingSpace:view |
-| `/api/parking-spaces/by-parking/{parkingId}` | GET | 根据停车场查询车位 | parkingSpace:view |
+| `/api/parking-spaces/page` | GET | 分页查询停车位 | space:view |
+| `/api/parking-spaces/by-parking/{parkingId}` | GET | 根据停车场查询车位 | space:view |
 | `/api/parking-spaces/available/{parkingId}` | GET | 查询可用车位 | 无 |
-| `/api/parking-spaces/group/{parkingId}` | GET | 按楼层和区域分组查询 | parkingSpace:view |
-| `/api/parking-spaces` | POST | 新增停车位 | parkingSpace:add |
-| `/api/parking-spaces` | PUT | 更新停车位 | parkingSpace:edit |
-| `/api/parking-spaces/{id}` | DELETE | 删除停车位 | parkingSpace:delete |
-| `/api/parking-spaces/{id}/status` | PUT | 更新车位状态 | parkingSpace:edit |
+| `/api/parking-spaces/group/{parkingId}` | GET | 按楼层和区域分组查询 | space:view |
+| `/api/parking-spaces` | POST | 新增停车位 | space:add |
+| `/api/parking-spaces` | PUT | 更新停车位 | space:edit |
+| `/api/parking-spaces/{id}` | DELETE | 删除停车位 | space:delete |
+| `/api/parking-spaces/{id}/status` | PUT | 更新车位状态 | space:edit |
 | `/api/parking-spaces/{id}/reserve` | PUT | 预约车位 | 无 |
-| `/api/parking-spaces/{id}/release` | PUT | 释放车位 | parkingSpace:edit |
+| `/api/parking-spaces/{id}/release` | PUT | 释放车位 | space:edit |
 
-#### 3.2.1 查询可用车位
+#### 4.2.1 查询可用车位
 **请求参数：**
 - parkingId: 停车场ID（路径参数）
 
@@ -166,7 +166,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": [
     {
       "id": 1,
@@ -181,7 +181,7 @@ http://服务器地址:8076/api/具体接口路径
 }
 ```
 
-### 3.3 车辆进出管理
+### 4.3 车辆进出管理
 
 | 接口地址 | 请求方法 | 功能描述 | 权限要求 |
 |---------|---------|---------|---------|
@@ -191,7 +191,7 @@ http://服务器地址:8076/api/具体接口路径
 | `/api/vehicle/records/parking/{parkingId}` | GET | 根据停车场查询车辆进出记录 | billing:view |
 | `/api/vehicle/records/car/{carNo}` | GET | 根据车牌号查询车辆进出记录 | billing:view |
 
-#### 3.3.1 车辆入场登记
+#### 4.3.1 车辆入场登记
 **请求参数：**
 - parkingId: 停车场ID（必填）
 - spaceId: 停车位ID（必填）
@@ -201,7 +201,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": {
     "id": 1,
     "carNo": "京A12345",
@@ -214,7 +214,7 @@ http://服务器地址:8076/api/具体接口路径
 }
 ```
 
-### 3.4 收费记录管理
+### 4.4 收费记录管理
 
 | 接口地址 | 请求方法 | 功能描述 | 权限要求 |
 |---------|---------|---------|---------|
@@ -223,7 +223,7 @@ http://服务器地址:8076/api/具体接口路径
 | `/api/billing/records/statistics/daily` | GET | 日报表统计 | billing:statistics |
 | `/api/billing/records/export` | POST | 导出收费记录 | billing:export |
 
-#### 3.4.1 支付停车费
+#### 4.4.1 支付停车费
 **请求参数：**
 - id: 记录ID（路径参数）
 - paymentMethod: 支付方式（必填）
@@ -234,12 +234,12 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": true
 }
 ```
 
-### 3.5 计费规则管理
+### 4.5 计费规则管理
 
 | 接口地址 | 请求方法 | 功能描述 | 权限要求 |
 |---------|---------|---------|---------|
@@ -252,7 +252,7 @@ http://服务器地址:8076/api/具体接口路径
 | `/api/billing/rules/calculate` | POST | 试算停车费用 | billing:rule:calculate |
 | `/api/billing/rules/parking/{parkingId}` | GET | 获取停车场有效规则 | 无 |
 
-#### 3.5.1 试算停车费用
+#### 4.5.1 试算停车费用
 **请求参数：**
 - ruleId: 规则ID（必填）
 - entryTime: 入场时间（必填）
@@ -262,7 +262,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": {
     "totalTime": 120,
     "totalFee": 10.00,
@@ -282,7 +282,7 @@ http://服务器地址:8076/api/具体接口路径
 }
 ```
 
-#### 3.5.2 删除计费规则
+#### 4.5.2 删除计费规则
 **请求参数：**
 - id: 规则ID（路径参数，必填）
 
@@ -290,7 +290,7 @@ http://服务器地址:8076/api/具体接口路径
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": true
 }
 ```

@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
 
 export function login(data) {
   return request({

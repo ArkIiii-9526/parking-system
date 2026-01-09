@@ -10,6 +10,7 @@ import App from './App.vue'
 import router from './router'
 import '@/styles/index.scss'
 import permissionDirective from '@/directive/permission'
+import './permission'
 
 const app = createApp(App)
 

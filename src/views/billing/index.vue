@@ -195,8 +195,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { getBillingRecordsPage, payBillingRecord, exportBillingRecords } from '@/api/billing'
 
 const loading = ref(false)
@@ -373,7 +373,7 @@ async function handleExport() {
     link.download = `收费记录_${new Date().toLocaleDateString()}.xlsx`
     link.click()
     ElMessage.success('导出成功')
-  } catch (error) {
+  } catch (_) {
     ElMessage.error('导出失败')
   }
 }
