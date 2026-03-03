@@ -1,14 +1,14 @@
 <template>
   <div class="main-layout">
-    <MainSidebar />
+    <MainSidebar @collapse="handleCollapse" />
     <div class="main-container" :class="{ 'is-collapse': isCollapse }">
-      <MainHeader />
+      <MainHeader @collapse="handleCollapse" :isCollapse="isCollapse" />
       <TagsView />
       <main class="main-content">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
             <keep-alive :include="cachedViews">
-              <component :is="Component" />
+              <component :is="Component" class="page-content animate-fade-in" />
             </keep-alive>
           </transition>
         </router-view>
@@ -35,6 +35,11 @@ const cachedViews = computed(() => {
     .filter(view => view.meta?.keepAlive)
     .map(view => view.name)
 })
+
+// 处理侧边栏折叠
+function handleCollapse(collapse) {
+  isCollapse.value = collapse
+}
 
 // 监听路由变化，更新访问过的视图
 watch(
@@ -65,6 +70,7 @@ onMounted(() => {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background-color: var(--bg-color);
 }
 
 .main-container {
@@ -72,11 +78,11 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: margin-left 0.3s;
+  transition: all 0.3s ease;
   padding: 0;
   
   &.is-collapse {
-    margin-left: 64px;
+    margin-left: var(--sidebar-collapse-width);
   }
 }
 
@@ -84,16 +90,24 @@ onMounted(() => {
   flex: 1;
   overflow: hidden;
   overflow-y: auto;
-  padding: 20px;
-  background-color: #f5f7fa;
+  padding: var(--spacing-lg);
+  background-color: var(--bg-color);
   box-sizing: border-box;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  transition: max-width 0.3s ease;
+  transition: all 0.3s ease;
   
   @media (max-width: 1440px) {
     max-width: 100%;
+  }
+  
+  @media (max-width: 768px) {
+    padding: var(--spacing-md);
+  }
+  
+  @media (max-width: 480px) {
+    padding: var(--spacing-sm);
   }
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
   <div class="dashboard-container">
-    <el-row :gutter="20">
+    <el-row :gutter="24">
       <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
+        <div class="stat-card">
           <div class="stat-icon parking">
             <el-icon><Van /></el-icon>
           </div>
@@ -10,10 +10,10 @@
             <div class="stat-value">{{ stats.totalParkings }}</div>
             <div class="stat-label">停车场总数</div>
           </div>
-        </el-card>
+        </div>
       </el-col>
       <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
+        <div class="stat-card">
           <div class="stat-icon spaces">
             <el-icon><Grid /></el-icon>
           </div>
@@ -21,10 +21,10 @@
             <div class="stat-value">{{ stats.totalSpaces }}</div>
             <div class="stat-label">停车位总数</div>
           </div>
-        </el-card>
+        </div>
       </el-col>
       <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
+        <div class="stat-card">
           <div class="stat-icon available">
             <el-icon><CircleCheck /></el-icon>
           </div>
@@ -32,10 +32,10 @@
             <div class="stat-value">{{ stats.availableSpaces }}</div>
             <div class="stat-label">可用车位</div>
           </div>
-        </el-card>
+        </div>
       </el-col>
       <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
+        <div class="stat-card">
           <div class="stat-icon revenue">
             <el-icon><Money /></el-icon>
           </div>
@@ -43,95 +43,101 @@
             <div class="stat-value">¥{{ stats.todayRevenue }}</div>
             <div class="stat-label">今日营收</div>
           </div>
-        </el-card>
+        </div>
       </el-col>
     </el-row>
     
-    <el-row :gutter="20" style="margin-top: 20px;">
+    <el-row :gutter="24" class="mt-4">
       <el-col :span="16">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header">
-              <span>停车位使用情况</span>
-            </div>
-          </template>
-          <div class="chart-container">
+        <div class="card">
+          <div class="card-header">
+            <h3>停车位使用情况</h3>
+          </div>
+          <div class="card-body">
             <div class="parking-status">
               <div class="status-item">
-                <span class="status-label">空闲</span>
+                <div class="status-header">
+                  <span class="status-label">占用</span>
+                  <span class="status-percentage">{{ stats.usageRate }}%</span>
+                </div>
                 <el-progress 
                   :percentage="stats.usageRate" 
-                  :stroke-width="20"
+                  :stroke-width="12"
                   status="success"
+                  class="status-progress"
                 />
               </div>
               <div class="status-item">
-                <span class="status-label">占用</span>
+                <div class="status-header">
+                  <span class="status-label">空闲</span>
+                  <span class="status-percentage">{{ 100 - stats.usageRate }}%</span>
+                </div>
                 <el-progress 
                   :percentage="100 - stats.usageRate" 
-                  :stroke-width="20"
-                  status="exception"
+                  :stroke-width="12"
+                  status="info"
+                  class="status-progress"
                 />
               </div>
             </div>
           </div>
-        </el-card>
+        </div>
       </el-col>
       <el-col :span="8">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header">
-              <span>快速操作</span>
-            </div>
-          </template>
-          <div class="quick-actions">
-            <el-button type="primary" @click="handleQuickEntry">
-              <el-icon><Plus /></el-icon>
-              车辆入场
-            </el-button>
-            <el-button type="success" @click="handleQuickExit">
-              <el-icon><Minus /></el-icon>
-              车辆出场
-            </el-button>
-            <el-button type="warning" @click="handleQuickQuery">
-              <el-icon><Search /></el-icon>
-              车辆查询
-            </el-button>
+        <div class="card">
+          <div class="card-header">
+            <h3>快速操作</h3>
           </div>
-        </el-card>
+          <div class="card-body">
+            <div class="quick-actions">
+              <el-button type="primary" @click="handleQuickEntry" class="action-btn primary">
+                <el-icon class="btn-icon"><Plus /></el-icon>
+                <span>车辆入场</span>
+              </el-button>
+              <el-button type="success" @click="handleQuickExit" class="action-btn success">
+                <el-icon class="btn-icon"><Minus /></el-icon>
+                <span>车辆出场</span>
+              </el-button>
+              <el-button type="warning" @click="handleQuickQuery" class="action-btn warning">
+                <el-icon class="btn-icon"><Search /></el-icon>
+                <span>车辆查询</span>
+              </el-button>
+            </div>
+          </div>
+        </div>
       </el-col>
     </el-row>
     
-    <el-row :gutter="20" style="margin-top: 20px;">
+    <el-row :gutter="24" class="mt-4">
       <el-col :span="24">
-        <el-card class="chart-card">
-          <template #header>
-            <div class="card-header">
-              <span>最近车辆进出记录</span>
-            </div>
-          </template>
-          <el-table :data="recentRecords" stripe style="width: 100%">
-            <el-table-column prop="carNo" label="车牌号" width="150" />
-            <el-table-column prop="parkingName" label="停车场" width="200" />
-            <el-table-column prop="entryTime" label="入场时间" width="180">
-              <template #default="{ row }">
-                {{ formatTime(row.entryTime) }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="exitTime" label="出场时间" width="180">
-              <template #default="{ row }">
-                {{ row.exitTime ? formatTime(row.exitTime) : '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 1 ? 'success' : 'warning'">
-                  {{ row.status === 1 ? '已出场' : '在场' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
+        <div class="card">
+          <div class="card-header">
+            <h3>最近车辆进出记录</h3>
+          </div>
+          <div class="card-body">
+            <el-table :data="recentRecords" class="records-table">
+              <el-table-column prop="carNo" label="车牌号" width="150" />
+              <el-table-column prop="parkingName" label="停车场" width="200" />
+              <el-table-column prop="entryTime" label="入场时间" width="180">
+                <template #default="{ row }">
+                  {{ formatTime(row.entryTime) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="exitTime" label="出场时间" width="180">
+                <template #default="{ row }">
+                  {{ row.exitTime ? formatTime(row.exitTime) : '-' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="status" label="状态" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === 1 ? 'success' : 'warning'" class="status-tag">
+                    {{ row.status === 1 ? '已出场' : '在场' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
       </el-col>
     </el-row>
   </div>
@@ -237,43 +243,49 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .dashboard-container {
-  padding: 0 20px;
+  padding: 0;
   overflow: hidden;
 }
 
 .stat-card {
-  border-radius: 8px;
+  background: var(--surface);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  padding: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
   
-  :deep(.el-card__body) {
-    display: flex;
-    align-items: center;
-    padding: 20px;
+  &:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
   }
   
   .stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--border-radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 16px;
+    margin-right: var(--spacing-md);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     
     .el-icon {
-      font-size: 28px;
-      color: #ffffff;
+      font-size: 32px;
+      color: var(--white);
     }
     
     &.parking {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     }
     
     &.spaces {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      background: linear-gradient(135deg, var(--success-color) 0%, #388e3c 100%);
     }
     
     &.available {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      background: linear-gradient(135deg, var(--warning-color) 0%, #e65100 100%);
     }
     
     &.revenue {
@@ -282,42 +294,84 @@ onMounted(() => {
   }
   
   .stat-info {
+    flex: 1;
+    
     .stat-value {
-      font-size: 28px;
-      font-weight: 600;
-      color: #303133;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
       line-height: 1.2;
+      margin-bottom: var(--spacing-xs);
     }
     
     .stat-label {
-      font-size: 14px;
-      color: #909399;
-      margin-top: 4px;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
   }
 }
 
-.chart-card {
-  border-radius: 8px;
+.card {
+  background: var(--surface);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  transition: all 0.3s ease;
   
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 16px;
-    font-weight: 500;
+  &:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
   
-  .chart-container {
-    .parking-status {
-      .status-item {
-        margin-bottom: 20px;
+  .card-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface);
+    
+    h3 {
+      margin: 0;
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+  }
+  
+  .card-body {
+    padding: var(--spacing-lg);
+  }
+  
+  .parking-status {
+    .status-item {
+      margin-bottom: var(--spacing-lg);
+      
+      .status-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-sm);
         
         .status-label {
-          display: block;
-          margin-bottom: 8px;
-          font-size: 14px;
-          color: #606266;
+          font-size: var(--font-size-base);
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+        
+        .status-percentage {
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          color: var(--text-secondary);
+        }
+      }
+      
+      .status-progress {
+        .el-progress__bar {
+          border-radius: var(--border-radius-sm);
+        }
+        
+        .el-progress__text {
+          font-size: var(--font-size-xs);
+          color: var(--text-secondary);
         }
       }
     }
@@ -325,12 +379,142 @@ onMounted(() => {
   
   .quick-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-direction: column;
+    gap: var(--spacing-sm);
     
-    .el-button {
-      flex: 1;
-      min-width: 120px;
+    .action-btn {
+      width: 100%;
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius-base);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      transition: all 0.2s ease;
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      
+      .btn-icon {
+        font-size: 16px;
+      }
+    }
+  }
+  
+  .records-table {
+    border-radius: var(--border-radius-base);
+    overflow: hidden;
+    
+    :deep(.el-table__header-wrapper) {
+      background-color: var(--surface-light);
+      
+      th.el-table__cell {
+        background-color: var(--surface-light);
+        font-weight: 600;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+      }
+    }
+    
+    :deep(.el-table__body-wrapper) {
+      tr.el-table__row {
+        transition: background-color 0.2s ease;
+        
+        &:hover {
+          background-color: var(--surface-light);
+        }
+        
+        td.el-table__cell {
+          border-bottom: 1px solid var(--border-color-light);
+        }
+      }
+    }
+    
+    .status-tag {
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-size-xs);
+      padding: 2px 8px;
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .el-row {
+    .el-col {
+      &:span-6 {
+        margin-bottom: var(--spacing-md);
+      }
+      
+      &:span-16,
+      &:span-8 {
+        margin-bottom: var(--spacing-md);
+      }
+    }
+  }
+  
+  .stat-card {
+    padding: var(--spacing-md);
+    
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      margin-right: var(--spacing-sm);
+      
+      .el-icon {
+        font-size: 24px;
+      }
+    }
+    
+    .stat-info {
+      .stat-value {
+        font-size: 24px;
+      }
+    }
+  }
+  
+  .card {
+    .card-header,
+    .card-body {
+      padding: var(--spacing-md);
+    }
+    
+    .quick-actions {
+      .action-btn {
+        padding: var(--spacing-sm);
+        font-size: var(--font-size-sm);
+        
+        .btn-icon {
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    flex-direction: column;
+    text-align: center;
+    
+    .stat-icon {
+      margin-right: 0;
+      margin-bottom: var(--spacing-sm);
+    }
+  }
+  
+  .card {
+    .parking-status {
+      .status-item {
+        .status-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--spacing-xs);
+        }
+      }
     }
   }
 }

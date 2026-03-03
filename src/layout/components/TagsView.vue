@@ -9,6 +9,9 @@
         @click.middle="closeTag(tag)"
         @contextmenu.prevent="openMenu(tag, $event)"
       >
+        <el-icon v-if="tag.meta.icon" class="tag-icon">
+          <component :is="tag.meta.icon" />
+        </el-icon>
         {{ tag.meta.title }}
         <el-icon v-if="!tag.meta.affix" class="close-icon" @click.prevent.stop="closeTag(tag)">
           <Close />
@@ -16,21 +19,21 @@
       </router-link>
     </el-scrollbar>
     <ul v-show="visible" :style="{ left: left + 'px', top: top + 'px' }" class="context-menu">
-      <li @click="refreshSelectedTag">
-        <el-icon><Refresh /></el-icon>
-        刷新
+      <li @click="refreshSelectedTag" class="menu-item">
+        <el-icon class="menu-icon"><Refresh /></el-icon>
+        <span>刷新</span>
       </li>
-      <li v-if="!isAffix" @click="closeSelectedTag">
-        <el-icon><Close /></el-icon>
-        关闭
+      <li v-if="!isAffix" @click="closeSelectedTag" class="menu-item">
+        <el-icon class="menu-icon"><Close /></el-icon>
+        <span>关闭</span>
       </li>
-      <li @click="closeOthersTags">
-        <el-icon><CircleClose /></el-icon>
-        关闭其他
+      <li @click="closeOthersTags" class="menu-item">
+        <el-icon class="menu-icon"><CircleClose /></el-icon>
+        <span>关闭其他</span>
       </li>
-      <li @click="closeAllTags">
-        <el-icon><Remove /></el-icon>
-        关闭所有
+      <li @click="closeAllTags" class="menu-item">
+        <el-icon class="menu-icon"><Remove /></el-icon>
+        <span>关闭所有</span>
       </li>
     </ul>
   </div>
@@ -91,6 +94,17 @@ function openMenu(tag, e) {
   top.value = e.clientY
   visible.value = true
   selectedTag.value = tag
+  // 阻止事件冒泡，避免菜单立即关闭
+  e.stopPropagation()
+  // 添加点击事件监听器，点击其他地方关闭菜单
+  setTimeout(() => {
+    document.body.addEventListener('click', handleBodyClick)
+  }, 0)
+}
+
+function handleBodyClick() {
+  visible.value = false
+  document.body.removeEventListener('click', handleBodyClick)
 }
 
 function closeSelectedTag() {
@@ -128,14 +142,6 @@ watch(() => route.path, () => {
   addTags()
 })
 
-watch(visible, (value) => {
-  if (value) {
-    document.body.addEventListener('click', () => {
-      visible.value = false
-    })
-  }
-})
-
 onMounted(() => {
   addTags()
 })
@@ -143,63 +149,82 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .tags-view-container {
-  height: 34px;
+  height: var(--tags-view-height);
   width: 100%;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 var(--spacing-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
 }
 
 .tags-view-wrapper {
   flex: 1;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  
+  .el-scrollbar__view {
+    display: flex;
+    align-items: center;
+  }
   
   .tags-view-item {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     position: relative;
     cursor: pointer;
-    height: 26px;
-    line-height: 26px;
-    border: 1px solid #e4e7ed;
-    color: #606266;
-    background: #ffffff;
-    padding: 0 8px;
-    font-size: 12px;
-    margin-left: 5px;
-    border-radius: 4px;
+    height: 32px;
+    line-height: 32px;
+    border: 1px solid var(--border-color);
+    color: var(--text-regular);
+    background: var(--surface);
+    padding: 0 var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    margin-left: var(--spacing-xs);
+    border-radius: var(--border-radius-base);
+    transition: all 0.2s ease;
     
     &:first-of-type {
-      margin-left: 10px;
+      margin-left: 0;
+    }
+    
+    &:hover {
+      border-color: var(--primary-light);
+      background-color: var(--surface-light);
     }
     
     &.active {
-      background-color: #409EFF;
-      color: #ffffff;
-      border-color: #409EFF;
+      background-color: var(--primary-color);
+      color: var(--white);
+      border-color: var(--primary-color);
+      box-shadow: 0 2px 4px rgba(54, 100, 139, 0.3);
       
-      &::before {
-        content: '';
-        background: #ffffff;
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        position: relative;
-        margin-right: 4px;
+      &:hover {
+        background-color: var(--primary-light);
+        border-color: var(--primary-light);
       }
     }
     
+    .tag-icon {
+      font-size: 14px;
+      margin-right: var(--spacing-xs);
+      opacity: 0.8;
+    }
+    
     .close-icon {
+      font-size: 14px;
       border-radius: 50%;
       text-align: center;
-      transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
-      margin-left: 4px;
+      transition: all 0.2s ease;
+      margin-left: var(--spacing-xs);
+      padding: 2px;
       
       &:hover {
-        background-color: #b4bccc;
-        color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.2);
+        color: var(--white);
       }
     }
   }
@@ -207,28 +232,56 @@ onMounted(() => {
 
 .context-menu {
   margin: 0;
-  background: #ffffff;
+  background: var(--surface);
   z-index: 3000;
   list-style-type: none;
-  padding: 5px 0;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: var(--spacing-xs) 0;
+  border-radius: var(--border-radius-base);
+  font-size: var(--font-size-sm);
   font-weight: 400;
-  color: #333;
-  box-shadow: 2px 2px 3px 0 rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-color);
   
-  li {
+  .menu-item {
     display: flex;
     align-items: center;
-    padding: 7px 16px;
+    padding: var(--spacing-sm) var(--spacing-md);
     cursor: pointer;
+    transition: all 0.2s ease;
     
     &:hover {
-      background: #f5f7fa;
+      background: var(--surface-light);
+      color: var(--primary-color);
     }
     
-    .el-icon {
-      margin-right: 5px;
+    .menu-icon {
+      margin-right: var(--spacing-sm);
+      font-size: 14px;
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .tags-view-container {
+    padding: 0 var(--spacing-sm);
+  }
+  
+  .tags-view-wrapper {
+    .tags-view-item {
+      font-size: var(--font-size-xs);
+      height: 28px;
+      line-height: 28px;
+      padding: 0 var(--spacing-xs);
+      
+      .tag-icon {
+        font-size: 12px;
+      }
+      
+      .close-icon {
+        font-size: 12px;
+      }
     }
   }
 }
