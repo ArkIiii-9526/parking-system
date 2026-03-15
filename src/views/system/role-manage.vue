@@ -107,7 +107,7 @@
     >
       <div class="permission-tree">
         <el-tree
-          ref="permissionTree"
+          ref="permissionTreeRef"
           :data="permissionTree"
           :props="{ label: 'name', children: 'children' }"
           show-checkbox

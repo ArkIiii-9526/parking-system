@@ -1,5 +1,4 @@
 import request from '@/utils/request'
-import { useUserStore } from '@/stores/user'
 
 export function login(data) {
   return request({
@@ -12,6 +11,13 @@ export function login(data) {
 export function logout() {
   return request({
     url: '/auth/logout',
+    method: 'post'
+  })
+}
+
+export function refreshToken() {
+  return request({
+    url: '/auth/refresh',
     method: 'post'
   })
 }

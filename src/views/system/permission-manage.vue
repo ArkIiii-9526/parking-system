@@ -91,14 +91,18 @@
     >
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="上级权限">
-          <el-tree-select
-            v-model="formData.parentId"
-            :data="treeData"
-            :props="{ label: 'name', value: 'id' }"
-            placeholder="请选择上级权限（不选则为顶级）"
-            clearable
-            check-strictly
-          />
+          <el-select v-model="formData.parentId" placeholder="请选择上级权限（不选则为顶级）" clearable>
+            <el-option
+              v-for="item in treeData"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            >
+              <template #default="{ option }">
+                <span style="margin-left: 10px;">{{ option.label }}</span>
+              </template>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="权限类型" prop="type">
           <el-select v-model="formData.type" placeholder="请选择权限类型">
@@ -222,14 +226,11 @@ async function loadTreeData() {
   }
 }
 
-function convertToTree(data, parentId = null) {
-  return data
-    .filter(item => item.parentId === parentId)
-    .map(item => ({
-      id: item.id,
-      name: item.name,
-      children: convertToTree(data, item.id)
-    }))
+function convertToTree(data) {
+  return data.map(item => ({
+    id: item.id,
+    name: item.name
+  }))
 }
 
 function handleSearch() {

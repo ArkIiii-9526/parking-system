@@ -62,7 +62,32 @@ const routes = [
         component: () => import('@/views/billing-rule/index.vue'),
         meta: { title: '计费规则管理', icon: 'Setting' }
       },
-      {        path: 'system',        name: 'System',        redirect: '/system/user',        meta: { title: '系统管理', icon: 'Setting' },        children: [          {            path: 'user',            name: 'SystemUser',            component: () => import('@/views/system/user-manage.vue'),            meta: { title: '用户管理', icon: 'User' }          },          {            path: 'role',            name: 'SystemRole',            component: () => import('@/views/system/role-manage.vue'),            meta: { title: '角色管理', icon: 'UserFilled' }          },          {            path: 'permission',            name: 'SystemPermission',            component: () => import('@/views/system/permission-manage.vue'),            meta: { title: '权限管理', icon: 'Lock' }          }        ]      }
+      {
+        path: 'system',
+        name: 'System',
+        redirect: '/system/user',
+        meta: { title: '系统管理', icon: 'Setting' },
+        children: [
+          {
+            path: 'user',
+            name: 'SystemUser',
+            component: () => import('@/views/system/user-manage.vue'),
+            meta: { title: '用户管理', icon: 'User' }
+          },
+          {
+            path: 'role',
+            name: 'SystemRole',
+            component: () => import('@/views/system/role-manage.vue'),
+            meta: { title: '角色管理', icon: 'UserFilled' }
+          },
+          {
+            path: 'permission',
+            name: 'SystemPermission',
+            component: () => import('@/views/system/permission-manage.vue'),
+            meta: { title: '权限管理', icon: 'Lock' }
+          }
+        ]
+      }
     ]
   }
 ]

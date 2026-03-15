@@ -19,7 +19,7 @@
           <template v-if="!route.hidden">
             <el-menu-item
               v-if="!route.children || route.children.length === 1"
-              :index="route.path"
+              :index="route.path.startsWith('/') ? route.path : `/${route.path}`"
               class="menu-item"
             >
               <el-icon v-if="route.meta.icon" class="menu-icon">
@@ -29,7 +29,7 @@
             </el-menu-item>
             <el-sub-menu
               v-else
-              :index="route.path"
+              :index="route.path.startsWith('/') ? route.path : `/${route.path}`"
               class="menu-sub"
             >
               <template #title>
@@ -98,7 +98,10 @@ function resolvePath(basePath, path) {
   if (path.startsWith('/')) {
     return path
   }
-  return basePath === '/' ? `/${path}` : `${basePath}/${path}`
+  // 确保basePath是绝对路径
+  const absoluteBasePath = basePath.startsWith('/') ? basePath : `/${basePath}`
+  // 生成子菜单的绝对路径
+  return `${absoluteBasePath}/${path}`
 }
 
 function updateMenus() {
@@ -110,6 +113,16 @@ function updateMenus() {
     // 如果没有后端菜单数据，直接使用本地路由作为菜单
     menuRoutes.value = localRoutes
   }
+  // 调试日志
+  console.log('=== 菜单路由 ===')
+  menuRoutes.value.forEach(route => {
+    console.log(`Path: ${route.path}, Name: ${route.name}`)
+    if (route.children) {
+      route.children.forEach(child => {
+        console.log(`  Child: ${child.path}, Name: ${child.name}`)
+      })
+    }
+  })
 }
 
 function toggleCollapse() {

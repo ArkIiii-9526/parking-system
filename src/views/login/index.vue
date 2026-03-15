@@ -128,9 +128,9 @@ function handleLogin() {
       
       const redirect = route.query.redirect || '/'
       router.push(redirect)
-    } catch (error) {
-      ElMessage.error('登录失败，请检查用户名和密码')
-    } finally {
+    } catch (_) {
+          ElMessage.error('登录失败，请检查用户名和密码')
+        } finally {
       loading.value = false
     }
   })

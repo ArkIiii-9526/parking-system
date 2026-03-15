@@ -21,7 +21,7 @@ router.beforeEach(async (to, from, next) => {
         try {
           await userStore.getUserInfo()
           next({ ...to, replace: true })
-        } catch (error) {
+        } catch (_) {
           // 清除令牌并重定向到登录页
           userStore.resetState()
           next(`/login?redirect=${to.path}`)

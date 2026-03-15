@@ -59,3 +59,28 @@ export function bindRolePermission(data) {
     data
   })
 }
+
+export function getChildRoles(parentId) {
+  return request({
+    url: `/sys/role/child/${parentId}`,
+    method: 'get'
+  })
+}
+
+export function getParentRoles(roleId) {
+  return request({
+    url: `/sys/role/parent/${roleId}`,
+    method: 'get'
+  })
+}
+
+export function checkRolePermission(roleId, permissionCode) {
+  return request({
+    url: '/sys/role/permission/check',
+    method: 'get',
+    params: {
+      roleId,
+      permissionCode
+    }
+  })
+}
