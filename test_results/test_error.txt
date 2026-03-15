@@ -1,0 +1,4 @@
+测试过程中出现错误: Locator.wait_for: Timeout 60000ms exceeded.
+Call log:
+  - waiting for locator("text=权限管理") to be visible
+
