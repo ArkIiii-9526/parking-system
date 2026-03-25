@@ -28,7 +28,7 @@
       <template #header>
         <div class="card-header">
           <span>计费规则列表</span>
-          <el-button v-permission="'billingRule:add'" type="primary" @click="handleAdd">
+          <el-button v-permission="'billing:rule:add'" type="primary" @click="handleAdd">
             <el-icon><Plus /></el-icon>
             新增规则
           </el-button>
@@ -71,13 +71,13 @@
         </el-table-column>
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button v-permission="'billingRule:view'" link type="primary" @click="handleDetail(row)">
-              查看
+            <el-button v-permission="'billing:rule:view'" link type="primary" @click="handleDetail(row)">
+              详情
             </el-button>
-            <el-button v-permission="'billingRule:edit'" link type="primary" @click="handleEdit(row)">
+            <el-button v-permission="'billing:rule:update'" link type="primary" @click="handleEdit(row)">
               编辑
             </el-button>
-            <el-button v-permission="'billingRule:delete'" link type="danger" @click="handleDelete(row)">
+            <el-button v-permission="'billing:rule:delete'" link type="danger" @click="handleDelete(row)">
               删除
             </el-button>
           </template>

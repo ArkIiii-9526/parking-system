@@ -1,80 +1,118 @@
 <template>
-  <div class="sidebar-container" :class="{ 'is-collapse': isCollapse }">
-    <div class="logo-container">
-      <img class="logo" src="@/assets/logo.svg" alt="logo" />
-      <span v-if="!isCollapse" class="title">智慧停车</span>
-    </div>
-    <el-scrollbar>
-      <el-menu
-        :default-active="activeMenu"
-        :collapse="isCollapse"
-        :unique-opened="true"
-        background-color="var(--surface)"
-        text-color="var(--text-regular)"
-        active-text-color="var(--white)"
-        :collapse-transition="true"
-        router
-      >
-        <template v-for="route in menuRoutes" :key="route.path">
-          <template v-if="!route.hidden">
-            <el-menu-item
-              v-if="!route.children || route.children.length === 1"
-              :index="route.path.startsWith('/') ? route.path : `/${route.path}`"
-              class="menu-item"
-            >
-              <el-icon v-if="route.meta.icon" class="menu-icon">
-                <component :is="route.meta.icon" />
-              </el-icon>
-              <template #title>{{ route.meta.title }}</template>
-            </el-menu-item>
-            <el-sub-menu
-              v-else
-              :index="route.path.startsWith('/') ? route.path : `/${route.path}`"
-              class="menu-sub"
-            >
-              <template #title>
-                <el-icon v-if="route.meta.icon" class="menu-icon">
-                  <component :is="route.meta.icon" />
-                </el-icon>
-                <span>{{ route.meta.title }}</span>
-              </template>
-              <template v-for="child in route.children" :key="child.path">
-                <el-menu-item
-                  v-if="!child.hidden"
-                  :index="resolvePath(route.path, child.path)"
-                  class="menu-item child"
-                >
-                  <el-icon v-if="child.meta.icon" class="menu-icon">
-                    <component :is="child.meta.icon" />
-                  </el-icon>
-                  <template #title>{{ child.meta.title }}</template>
-                </el-menu-item>
-              </template>
-            </el-sub-menu>
-          </template>
-        </template>
-      </el-menu>
-    </el-scrollbar>
-    <div class="sidebar-footer">
-      <el-button 
-        type="text" 
-        class="collapse-btn" 
-        @click="toggleCollapse"
-        :title="isCollapse ? '展开菜单' : '收起菜单'"
-      >
+  <aside class="sidebar" :class="{ 'is-collapsed': isCollapse }">
+    <!-- Logo区域 -->
+    <div class="sidebar-header">
+      <div class="logo-wrapper">
+        <div class="logo-icon">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="sidebarLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#6366F1"/>
+                <stop offset="50%" style="stop-color:#10B981"/>
+                <stop offset="100%" style="stop-color:#F43F5E"/>
+              </linearGradient>
+            </defs>
+            <rect x="8" y="20" width="48" height="32" rx="4" stroke="url(#sidebarLogoGradient)" stroke-width="3" fill="none"/>
+            <circle cx="20" cy="36" r="4" fill="url(#sidebarLogoGradient)"/>
+            <circle cx="32" cy="36" r="4" fill="url(#sidebarLogoGradient)"/>
+            <circle cx="44" cy="36" r="4" fill="url(#sidebarLogoGradient)"/>
+            <path d="M16 20V14C16 11.7909 17.7909 10 20 10H44C46.2091 10 48 11.7909 48 14V20" stroke="url(#sidebarLogoGradient)" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span v-if="!isCollapse" class="logo-text">智慧停车</span>
+      </div>
+      <button class="collapse-btn" @click="toggleCollapse" :title="isCollapse ? '展开菜单' : '收起菜单'">
         <el-icon>
           <component :is="isCollapse ? 'Expand' : 'Fold'" />
         </el-icon>
-      </el-button>
+      </button>
     </div>
-  </div>
+
+    <!-- 菜单区域 -->
+    <div class="sidebar-body">
+      <el-scrollbar>
+        <nav class="menu-nav">
+          <template v-for="route in menuRoutes" :key="route.path">
+            <template v-if="!route.hidden">
+              <!-- 单级菜单 -->
+              <router-link
+                v-if="!route.children || route.children.length === 1"
+                :to="route.path.startsWith('/') ? route.path : `/${route.path}`"
+                class="menu-item"
+                :class="{ 'is-active': activeMenu === (route.path.startsWith('/') ? route.path : `/${route.path}`) }"
+              >
+                <span class="menu-icon">
+                  <el-icon v-if="route.meta?.icon">
+                    <component :is="route.meta.icon" />
+                  </el-icon>
+                </span>
+                <span v-if="!isCollapse" class="menu-title">{{ route.meta?.title }}</span>
+                <div v-if="!isCollapse" class="menu-glow"></div>
+              </router-link>
+
+              <!-- 多级菜单 -->
+              <div
+                v-else
+                class="menu-group"
+                :class="{ 'is-expanded': expandedMenus.includes(route.path) }"
+              >
+                <button
+                  class="menu-item menu-trigger"
+                  @click="toggleMenu(route.path)"
+                >
+                  <span class="menu-icon">
+                    <el-icon v-if="route.meta?.icon">
+                      <component :is="route.meta.icon" />
+                    </el-icon>
+                  </span>
+                  <span v-if="!isCollapse" class="menu-title">{{ route.meta?.title }}</span>
+                  <el-icon v-if="!isCollapse" class="menu-arrow">
+                    <ArrowDown />
+                  </el-icon>
+                </button>
+                <transition name="slide">
+                  <div v-show="!isCollapse && expandedMenus.includes(route.path)" class="submenu">
+                    <router-link
+                      v-for="child in route.children"
+                      :key="child.path"
+                      :to="resolvePath(route.path, child.path)"
+                      class="submenu-item"
+                      :class="{ 'is-active': activeMenu === resolvePath(route.path, child.path) }"
+                    >
+                      <span class="submenu-dot"></span>
+                      <span class="submenu-title">{{ child.meta?.title }}</span>
+                    </router-link>
+                  </div>
+                </transition>
+              </div>
+            </template>
+          </template>
+        </nav>
+      </el-scrollbar>
+    </div>
+
+    <!-- 底部区域 -->
+    <div class="sidebar-footer">
+      <div class="user-mini" v-if="!isCollapse">
+        <el-avatar :size="36" :src="userStore.avatar" class="user-avatar">
+          <el-icon><User /></el-icon>
+        </el-avatar>
+        <div class="user-info">
+          <span class="user-name">{{ userStore.userName }}</span>
+          <span class="user-role">管理员</span>
+        </div>
+      </div>
+      <button v-else class="footer-btn" @click="handleLogout">
+        <el-icon><SwitchButton /></el-icon>
+      </button>
+    </div>
+  </aside>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { filterAsyncRoutes } from '@/router'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,13 +120,11 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const menuRoutes = ref([])
-
-// 获取本地路由配置中的主路由children
-const localRoutes = router.getRoutes().find(route => route.path === '/')?.children || []
+const expandedMenus = ref([])
 
 const activeMenu = computed(() => {
   const { meta, path } = route
-  if (meta.activeMenu) {
+  if (meta?.activeMenu) {
     return meta.activeMenu
   }
   return path
@@ -98,31 +134,19 @@ function resolvePath(basePath, path) {
   if (path.startsWith('/')) {
     return path
   }
-  // 确保basePath是绝对路径
   const absoluteBasePath = basePath.startsWith('/') ? basePath : `/${basePath}`
-  // 生成子菜单的绝对路径
   return `${absoluteBasePath}/${path}`
 }
 
 function updateMenus() {
+  // 使用从后端获取的菜单数据
   if (userStore.menus && userStore.menus.length > 0) {
-    // 使用本地路由和后端菜单数据进行匹配过滤
-    const accessedRoutes = filterAsyncRoutes(localRoutes, userStore.menus)
-    menuRoutes.value = accessedRoutes
+    menuRoutes.value = userStore.menus
   } else {
-    // 如果没有后端菜单数据，直接使用本地路由作为菜单
+    // 如果没有获取到菜单，使用本地路由作为后备
+    const localRoutes = router.getRoutes().find(r => r.path === '/')?.children || []
     menuRoutes.value = localRoutes
   }
-  // 调试日志
-  console.log('=== 菜单路由 ===')
-  menuRoutes.value.forEach(route => {
-    console.log(`Path: ${route.path}, Name: ${route.name}`)
-    if (route.children) {
-      route.children.forEach(child => {
-        console.log(`  Child: ${child.path}, Name: ${child.name}`)
-      })
-    }
-  })
 }
 
 function toggleCollapse() {
@@ -130,166 +154,359 @@ function toggleCollapse() {
   emit('collapse', isCollapse.value)
 }
 
-onMounted(async () => {
+function toggleMenu(path) {
+  const index = expandedMenus.value.indexOf(path)
+  if (index > -1) {
+    expandedMenus.value.splice(index, 1)
+  } else {
+    expandedMenus.value.push(path)
+  }
+}
+
+function handleLogout() {
+  userStore.logout()
+}
+
+onMounted(() => {
   updateMenus()
 })
 
-// 监听菜单数据变化，实时更新菜单
-watch(
-  () => userStore.menus,
-  () => {
-    updateMenus()
-  },
-  { deep: true }
-)
+watch(() => userStore.menus, () => {
+  updateMenus()
+}, { deep: true })
 
 const emit = defineEmits(['collapse'])
 </script>
 
 <style lang="scss" scoped>
-.sidebar-container {
+.sidebar {
   width: var(--sidebar-width);
   height: 100vh;
-  background: var(--surface);
-  border-right: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-fixed);
   
-  &.is-collapse {
-    width: var(--sidebar-collapse-width);
-  }
-  
-  :deep(.el-menu) {
-    border-right: none;
-    background-color: transparent;
-    flex: 1;
+  &.is-collapsed {
+    width: var(--sidebar-collapsed);
     
-    .el-menu-item,
-    .el-sub-menu__title {
-      height: 48px;
-      line-height: 48px;
-      margin: var(--spacing-xs) var(--spacing-sm);
-      border-radius: var(--border-radius-base);
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
+    .sidebar-header {
+      padding: var(--space-4);
       
-      &:hover {
-        background-color: var(--surface-light);
-        color: var(--primary-color);
+      .logo-wrapper {
+        justify-content: center;
       }
       
-      &.is-active {
-        background-color: var(--primary-color);
-        color: var(--white);
-        box-shadow: 0 4px 6px -1px rgba(54, 100, 139, 0.3);
-        
-        &:hover {
-          background-color: var(--primary-light);
-        }
-      }
-    }
-    
-    .el-sub-menu {
-      .el-sub-menu__title {
-        
-        &:hover {
-          background-color: var(--surface-light);
-        }
-      }
-      
-      .el-menu-item {
-        padding-left: var(--spacing-xl) !important;
-        
-        &.is-active {
-          background-color: var(--primary-light);
-        }
+      .collapse-btn {
+        position: absolute;
+        right: -12px;
+        top: 50%;
+        transform: translateY(-50%);
       }
     }
   }
 }
 
-.logo-container {
-  height: var(--header-height);
+// 头部区域
+.sidebar-header {
   display: flex;
   align-items: center;
-  padding: 0 var(--spacing-md);
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--surface);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  
-  .logo {
-    width: 36px;
-    height: 36px;
-    transition: all 0.3s ease;
-  }
-  
-  .title {
-    margin-left: var(--spacing-sm);
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    color: var(--primary-color);
-    white-space: nowrap;
-    transition: all 0.3s ease;
-  }
-}
-
-.menu-item {
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
   position: relative;
   
-  .menu-icon {
-    font-size: 18px;
-    margin-right: var(--spacing-sm);
-    transition: all 0.3s ease;
-  }
-  
-  &.child {
-    .menu-icon {
-      font-size: 16px;
-      margin-right: var(--spacing-xs);
+  .logo-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      
+      svg {
+        width: 100%;
+        height: 100%;
+      }
+    }
+    
+    .logo-text {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-bold);
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      white-space: nowrap;
     }
   }
-}
-
-.sidebar-footer {
-  padding: var(--spacing-md);
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: center;
-  background-color: var(--surface);
   
   .collapse-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--border-radius-base);
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.3s ease;
     
     &:hover {
-      background-color: var(--surface-light);
-      color: var(--primary-color);
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: var(--text-primary);
+    }
+    
+    .el-icon {
+      font-size: 14px;
     }
   }
 }
 
-// 响应式设计
-@media (max-width: 768px) {
-  .sidebar-container {
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 1000;
-    height: 100vh;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+// 菜单区域
+.sidebar-body {
+  flex: 1;
+  overflow: hidden;
+  padding: var(--space-3);
+}
+
+.menu-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  font-size: var(--text-sm);
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+  }
+  
+  &.is-active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.1));
+    color: var(--text-primary);
     
-    &.is-collapse {
-      transform: translateX(-100%);
+    .menu-icon {
+      color: var(--primary-400);
+    }
+    
+    .menu-glow {
+      opacity: 1;
+    }
+  }
+  
+  .menu-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: color 0.3s ease;
+  }
+  
+  .menu-title {
+    flex: 1;
+    font-weight: var(--font-medium);
+    white-space: nowrap;
+    text-align: left;
+  }
+  
+  .menu-glow {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--primary-400), var(--secondary-400));
+    border-radius: var(--radius-full);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+}
+
+// 菜单组
+.menu-group {
+  .menu-trigger {
+    .menu-arrow {
+      font-size: 12px;
+      transition: transform 0.3s ease;
+    }
+  }
+  
+  &.is-expanded {
+    .menu-trigger {
+      background: rgba(255, 255, 255, 0.03);
+      
+      .menu-arrow {
+        transform: rotate(180deg);
+      }
+    }
+  }
+}
+
+// 子菜单
+.submenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0 var(--space-2) 44px;
+  
+  .submenu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    transition: all 0.3s ease;
+    position: relative;
+    
+    &:hover {
+      color: var(--text-secondary);
+      
+      .submenu-dot {
+        background: var(--primary-400);
+        transform: scale(1.2);
+      }
+    }
+    
+    &.is-active {
+      color: var(--primary-400);
+      background: rgba(99, 102, 241, 0.1);
+      
+      .submenu-dot {
+        background: var(--primary-400);
+        transform: scale(1.2);
+      }
+    }
+    
+    .submenu-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      transition: all 0.3s ease;
+    }
+    
+    .submenu-title {
+      white-space: nowrap;
+    }
+  }
+}
+
+// 子菜单动画
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease;
+  max-height: 500px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+// 底部区域
+.sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  
+  .user-mini {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-lg);
+    
+    .user-avatar {
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      
+      .user-name {
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--text-primary);
+      }
+      
+      .user-role {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+      }
+    }
+  }
+  
+  .footer-btn {
+    width: 100%;
+    padding: var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: rgba(244, 63, 94, 0.1);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: var(--accent-400);
+    }
+  }
+}
+
+// 响应式
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    
+    &.is-open {
+      transform: translateX(0);
     }
   }
 }

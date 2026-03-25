@@ -1,156 +1,264 @@
 <template>
-  <div class="parking-space-container">
-    <el-card class="filter-card">
-      <el-form :model="filterForm" :inline="true" class="filter-form">
-        <el-form-item label="停车场">
-          <el-select v-model="filterForm.parkingId" placeholder="请选择停车场" clearable @change="handleParkingChange">
-            <el-option v-for="p in parkingList" :key="p.id" :label="p.name" :value="p.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="区域">
-          <el-input v-model="filterForm.area" placeholder="请输入区域" clearable />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="filterForm.status" placeholder="请选择状态" clearable>
-            <el-option label="空闲" :value="1" />
-            <el-option label="占用" :value="2" />
-            <el-option label="已预约" :value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">
-            <el-icon><Search /></el-icon>
-            搜索
-          </el-button>
-          <el-button @click="handleReset">
-            <el-icon><Refresh /></el-icon>
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-    
-    <el-card class="table-card">
-      <template #header>
-        <div class="card-header">
-          <span>停车位列表</span>
-          <div class="header-actions">
-            <el-button v-permission="'parkingSpace:add'" type="primary" @click="handleAdd">
-              <el-icon><Plus /></el-icon>
-              新增停车位
-            </el-button>
-            <el-button type="success" @click="handleBatchAdd">
-              <el-icon><Grid /></el-icon>
-              批量添加
-            </el-button>
+  <div class="parking-space-page">
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">
+          <span class="title-icon">
+            <el-icon><Grid /></el-icon>
+          </span>
+          车位管理
+        </h1>
+        <p class="page-subtitle">管理停车位状态、预约及配置信息</p>
+      </div>
+      <div class="header-actions">
+        <button class="action-btn" v-permission="'space:add'" @click="handleAdd">
+          <el-icon><Plus /></el-icon>
+          <span>新增车位</span>
+        </button>
+        <button class="action-btn secondary" v-permission="'space:add'" @click="handleBatchAdd">
+          <el-icon><Collection /></el-icon>
+          <span>批量添加</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="stats-overview" v-if="filterForm.parkingId">
+      <div class="stat-card total">
+        <div class="stat-icon">
+          <el-icon><Grid /></el-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ spaceStats.total }}</span>
+          <span class="stat-label">总车位</span>
+        </div>
+      </div>
+      <div class="stat-card available">
+        <div class="stat-icon">
+          <el-icon><CircleCheck /></el-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ spaceStats.available }}</span>
+          <span class="stat-label">空闲</span>
+        </div>
+        <div class="stat-percent">{{ calculatePercent(spaceStats.available) }}%</div>
+      </div>
+      <div class="stat-card occupied">
+        <div class="stat-icon">
+          <el-icon><Van /></el-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ spaceStats.occupied }}</span>
+          <span class="stat-label">占用</span>
+        </div>
+        <div class="stat-percent">{{ calculatePercent(spaceStats.occupied) }}%</div>
+      </div>
+      <div class="stat-card reserved">
+        <div class="stat-icon">
+          <el-icon><Timer /></el-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ spaceStats.reserved }}</span>
+          <span class="stat-label">已预约</span>
+        </div>
+        <div class="stat-percent">{{ calculatePercent(spaceStats.reserved) }}%</div>
+      </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="filter-card">
+      <div class="filter-row">
+        <div class="filter-group">
+          <div class="filter-item">
+            <label>停车场</label>
+            <el-select v-model="filterForm.parkingId" placeholder="选择停车场" clearable @change="handleParkingChange">
+              <el-option v-for="p in parkingList" :key="p.id" :label="p.name" :value="p.id" />
+            </el-select>
+          </div>
+          <div class="filter-item">
+            <label>区域</label>
+            <div class="filter-input-wrapper">
+              <el-icon><MapLocation /></el-icon>
+              <el-input v-model="filterForm.area" placeholder="输入区域" clearable @keyup.enter="handleSearch" />
+            </div>
+          </div>
+          <div class="filter-item">
+            <label>状态</label>
+            <el-select v-model="filterForm.status" placeholder="选择状态" clearable>
+              <el-option label="空闲" :value="1">
+                <span class="status-dot available"></span> 空闲
+              </el-option>
+              <el-option label="占用" :value="2">
+                <span class="status-dot occupied"></span> 占用
+              </el-option>
+              <el-option label="已预约" :value="3">
+                <span class="status-dot reserved"></span> 已预约
+              </el-option>
+            </el-select>
           </div>
         </div>
-      </template>
-      
-      <div class="space-overview" v-if="filterForm.parkingId">
-        <div class="overview-item">
-          <span class="label">总车位数</span>
-          <span class="value">{{ spaceStats.total }}</span>
-        </div>
-        <div class="overview-item available">
-          <span class="label">空闲</span>
-          <span class="value">{{ spaceStats.available }}</span>
-        </div>
-        <div class="overview-item occupied">
-          <span class="label">占用</span>
-          <span class="value">{{ spaceStats.occupied }}</span>
-        </div>
-        <div class="overview-item reserved">
-          <span class="label">已预约</span>
-          <span class="value">{{ spaceStats.reserved }}</span>
+        <div class="filter-actions">
+          <button class="filter-btn primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            <span>搜索</span>
+          </button>
+          <button class="filter-btn" @click="handleReset">
+            <el-icon><Refresh /></el-icon>
+            <span>重置</span>
+          </button>
         </div>
       </div>
-      
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
-        <el-table-column prop="spaceCode" label="车位编号" width="120" />
-        <el-table-column prop="floor" label="楼层" width="100" />
-        <el-table-column prop="area" label="区域" width="120" />
-        <el-table-column prop="spaceType" label="车位类型" width="100">
-          <template #default="{ row }">
-            <el-tag v-if="row.spaceType === 1" type="success">普通车位</el-tag>
-            <el-tag v-else-if="row.spaceType === 2" type="warning">VIP车位</el-tag>
-            <el-tag v-else-if="row.spaceType === 3" type="info">充电车位</el-tag>
-            <el-tag v-else>-</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
-              {{ getStatusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button v-permission="'parkingSpace:edit'" link type="primary" @click="handleEdit(row)">
-              编辑
-            </el-button>
-            <el-button v-if="row.status === 1" v-permission="'parkingSpace:reserve'" link type="warning" @click="handleReserve(row)">
-              预约
-            </el-button>
-            <el-button v-if="row.status === 3" v-permission="'parkingSpace:edit'" link type="success" @click="handleRelease(row)">
-              释放
-            </el-button>
-            <el-button v-permission="'parkingSpace:delete'" link type="danger" @click="handleDelete(row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.pageNo"
-          v-model:page-size="pagination.pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="pagination.total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+    </div>
+
+    <!-- 车位网格视图 -->
+    <div class="spaces-grid" v-if="tableData.length > 0">
+      <div
+        v-for="(space, index) in tableData"
+        :key="space.id"
+        class="space-card"
+        :class="[getStatusClass(space.status), { 'animate-in': animated }]"
+        :style="{ animationDelay: `${index * 30}ms` }"
+      >
+        <div class="space-header">
+          <span class="space-code">{{ space.spaceCode }}</span>
+          <div class="space-type-badge" :class="getTypeClass(space.spaceType)">
+            {{ getTypeText(space.spaceType) }}
+          </div>
+        </div>
+
+        <div class="space-body">
+          <div class="space-status-icon">
+            <el-icon v-if="space.status === 1"><CircleCheck /></el-icon>
+            <el-icon v-else-if="space.status === 2"><Van /></el-icon>
+            <el-icon v-else><Timer /></el-icon>
+          </div>
+          <div class="space-status-text">{{ getStatusText(space.status) }}</div>
+        </div>
+
+        <div class="space-info">
+          <div class="info-item">
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>{{ space.floor }}</span>
+          </div>
+          <div class="info-item">
+            <el-icon><MapLocation /></el-icon>
+            <span>{{ space.area }}</span>
+          </div>
+        </div>
+
+        <div class="space-actions">
+          <button class="action-btn-small" v-permission="'space:edit'" @click="handleEdit(space)" title="编辑">
+            <el-icon><Edit /></el-icon>
+          </button>
+          <button
+            v-if="space.status === 1"
+            class="action-btn-small warning"
+            @click="handleReserve(space)"
+            title="预约"
+          >
+            <el-icon><Timer /></el-icon>
+          </button>
+          <button
+            v-if="space.status === 3"
+            class="action-btn-small success"
+            v-permission="'space:edit'"
+            @click="handleRelease(space)"
+            title="释放"
+          >
+            <el-icon><Unlock /></el-icon>
+          </button>
+          <button class="action-btn-small danger" v-permission="'space:delete'" @click="handleDelete(space)" title="删除">
+            <el-icon><Delete /></el-icon>
+          </button>
+        </div>
       </div>
-    </el-card>
-    
+    </div>
+
+    <!-- 空状态 -->
+    <div v-if="tableData.length === 0 && !loading" class="empty-state">
+      <div class="empty-icon">
+        <el-icon><Grid /></el-icon>
+      </div>
+      <h3>{{ filterForm.parkingId ? '暂无车位数据' : '请先选择停车场' }}</h3>
+      <p>{{ filterForm.parkingId ? '点击上方按钮添加车位' : '从上方选择停车场查看车位' }}</p>
+    </div>
+
+    <!-- 分页 -->
+    <div class="pagination-wrapper" v-if="pagination.total > 0">
+      <div class="pagination-info">
+        共 <span class="highlight">{{ pagination.total }}</span> 个车位
+      </div>
+      <el-pagination
+        v-model:current-page="pagination.pageNo"
+        v-model:page-size="pagination.pageSize"
+        :page-sizes="[24, 48, 96, 192]"
+        :total="pagination.total"
+        layout="sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+
+    <!-- 新增/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="dialogType === 'add' ? '新增停车位' : '编辑停车位'"
-      width="500px"
+      width="520px"
       :close-on-click-modal="false"
+      class="glass-dialog"
     >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" class="space-form">
         <el-form-item label="停车场" prop="parkingId">
-          <el-select v-model="formData.parkingId" placeholder="请选择停车场">
+          <el-select v-model="formData.parkingId" placeholder="选择停车场" style="width: 100%">
             <el-option v-for="p in parkingList" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="车位编号" prop="spaceCode">
-          <el-input v-model="formData.spaceCode" placeholder="如：A-001" />
-        </el-form-item>
-        <el-form-item label="楼层" prop="floor">
-          <el-input v-model="formData.floor" placeholder="如：1F、B1" />
-        </el-form-item>
+
+        <div class="form-row">
+          <el-form-item label="车位编号" prop="spaceCode" style="flex: 1">
+            <el-input v-model="formData.spaceCode" placeholder="如：A-001" />
+          </el-form-item>
+          <el-form-item label="楼层" prop="floor" style="flex: 1">
+            <el-input v-model="formData.floor" placeholder="如：1F" />
+          </el-form-item>
+        </div>
+
         <el-form-item label="区域" prop="area">
           <el-input v-model="formData.area" placeholder="如：A区" />
         </el-form-item>
-        <el-form-item label="车位类型" prop="spaceType">
-          <el-select v-model="formData.spaceType" placeholder="请选择车位类型">
-            <el-option label="普通车位" :value="1" />
-            <el-option label="VIP车位" :value="2" />
-            <el-option label="充电车位" :value="3" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-switch v-model="formData.status" :active-value="1" :inactive-value="2" />
-        </el-form-item>
+
+        <div class="form-row">
+          <el-form-item label="车位类型" prop="spaceType" style="flex: 1">
+            <el-select v-model="formData.spaceType" placeholder="选择类型" style="width: 100%">
+              <el-option label="普通车位" :value="1" />
+              <el-option label="VIP车位" :value="2" />
+              <el-option label="充电车位" :value="3" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="初始状态" prop="status" style="flex: 1">
+            <el-switch
+              v-model="formData.status"
+              :active-value="1"
+              :inactive-value="2"
+              active-text="空闲"
+              inactive-text="占用"
+            />
+          </el-form-item>
+        </div>
       </el-form>
+
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
+        <div class="dialog-footer">
+          <button class="dialog-btn" @click="dialogVisible = false">取消</button>
+          <button class="dialog-btn primary" @click="handleSubmit" :disabled="submitLoading">
+            <span v-if="!submitLoading">{{ dialogType === 'add' ? '创建' : '保存' }}</span>
+            <span v-else class="loading-text">
+              <span class="loading-spinner"></span>
+              处理中...
+            </span>
+          </button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -167,6 +275,7 @@ const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const dialogType = ref('add')
 const formRef = ref(null)
+const animated = ref(false)
 
 const tableData = ref([])
 const parkingList = ref([])
@@ -178,7 +287,7 @@ const filterForm = reactive({
 
 const pagination = reactive({
   pageNo: 1,
-  pageSize: 10,
+  pageSize: 24,
   total: 0
 })
 
@@ -206,14 +315,29 @@ const formRules = {
   area: [{ required: true, message: '请输入区域', trigger: 'blur' }]
 }
 
-function getStatusType(status) {
-  const types = { 1: 'success', 2: 'danger', 3: 'warning' }
-  return types[status] || 'info'
+function getStatusClass(status) {
+  const classes = { 1: 'status-available', 2: 'status-occupied', 3: 'status-reserved' }
+  return classes[status] || ''
 }
 
 function getStatusText(status) {
   const texts = { 1: '空闲', 2: '占用', 3: '已预约' }
   return texts[status] || '未知'
+}
+
+function getTypeClass(type) {
+  const classes = { 1: 'type-normal', 2: 'type-vip', 3: 'type-charging' }
+  return classes[type] || 'type-normal'
+}
+
+function getTypeText(type) {
+  const texts = { 1: '普通', 2: 'VIP', 3: '充电' }
+  return texts[type] || '普通'
+}
+
+function calculatePercent(value) {
+  if (!spaceStats.total) return 0
+  return Math.round((value / spaceStats.total) * 100)
 }
 
 async function loadParkingList() {
@@ -224,7 +348,6 @@ async function loadParkingList() {
     }
   } catch (error) {
     console.error('加载停车场列表失败:', error)
-    // 不显示错误提示，避免影响用户体验
   }
 }
 
@@ -233,7 +356,7 @@ async function loadData() {
     tableData.value = []
     return
   }
-  
+
   loading.value = true
   try {
     const res = await getParkingSpacePage({
@@ -246,8 +369,12 @@ async function loadData() {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.total = res.data.total || 0
+      animated.value = false
+      setTimeout(() => {
+        animated.value = true
+      }, 100)
     }
-    
+
     await loadSpaceStats()
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -320,11 +447,15 @@ function handleEdit(row) {
 }
 
 function handleDelete(row) {
-  ElMessageBox.confirm('确定要删除该停车位吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
+  ElMessageBox.confirm(
+    `确定要删除车位 "${row.spaceCode}" 吗？`,
+    '确认删除',
+    {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
     try {
       const res = await deleteParkingSpace(row.id)
       if (res.code === 200) {
@@ -341,7 +472,7 @@ function handleDelete(row) {
 
 async function handleReserve(row) {
   try {
-    await ElMessageBox.confirm('确定要预约该车位吗？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定要预约车位 "${row.spaceCode}" 吗？`, '确认预约', { type: 'info' })
     const res = await reserveSpace(row.id, {})
     if (res.code === 200) {
       ElMessage.success('预约成功')
@@ -358,7 +489,7 @@ async function handleReserve(row) {
 
 async function handleRelease(row) {
   try {
-    await ElMessageBox.confirm('确定要释放该车位吗？', '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定要释放车位 "${row.spaceCode}" 吗？`, '确认释放', { type: 'info' })
     const res = await releaseSpace(row.id)
     if (res.code === 200) {
       ElMessage.success('释放成功')
@@ -377,7 +508,7 @@ async function handleSubmit() {
   try {
     await formRef.value.validate()
     submitLoading.value = true
-    
+
     if (dialogType.value === 'add') {
       const res = await createParkingSpace(formData)
       if (res.code === 200) {
@@ -409,7 +540,7 @@ function handleBatchAdd() {
     ElMessage.warning('请先选择停车场')
     return
   }
-  // TODO: 打开批量添加对话框
+  ElMessage.info('批量添加功能开发中...')
 }
 
 onMounted(() => {
@@ -418,62 +549,816 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.parking-space-container {
-  .filter-card {
-    margin-bottom: 20px;
-  }
-  
-  .table-card {
-    .card-header {
+.parking-space-page {
+  padding: var(--space-6);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+// 页面标题
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+
+  .header-content {
+    .page-title {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-    }
-    
-    .space-overview {
-      display: flex;
-      gap: 24px;
-      padding: 16px;
-      background: #f5f7fa;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      
-      .overview-item {
+      gap: var(--space-3);
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+
+      .title-icon {
+        width: 44px;
+        height: 44px;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        
-        .label {
-          font-size: 12px;
-          color: #909399;
-          margin-bottom: 4px;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--secondary-500), var(--secondary-600));
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-glow-secondary);
+
+        .el-icon {
+          font-size: 22px;
+          color: white;
         }
-        
-        .value {
-          font-size: 24px;
-          font-weight: 600;
-          color: #303133;
+      }
+    }
+
+    .page-subtitle {
+      font-size: var(--text-sm);
+      color: var(--text-tertiary);
+      padding-left: calc(44px + var(--space-3));
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-5);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      color: white;
+      background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+      border: none;
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-glow-primary);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      }
+
+      &.secondary {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: none;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.3);
         }
-        
-        &.available .value {
-          color: #67C23A;
+      }
+
+      .el-icon {
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// 统计概览
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-icon {
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-lg);
+      font-size: 24px;
+    }
+
+    .stat-info {
+      flex: 1;
+
+      .stat-value {
+        font-family: var(--font-display);
+        font-size: var(--text-3xl);
+        font-weight: var(--font-bold);
+        color: var(--text-primary);
+        line-height: 1.2;
+      }
+
+      .stat-label {
+        font-size: var(--text-sm);
+        color: var(--text-tertiary);
+      }
+    }
+
+    .stat-percent {
+      position: absolute;
+      top: var(--space-3);
+      right: var(--space-4);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      color: var(--text-muted);
+    }
+
+    &.total .stat-icon {
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--primary-400);
+    }
+
+    &.available {
+      border-color: rgba(16, 185, 129, 0.3);
+
+      .stat-icon {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--secondary-400);
+      }
+
+      .stat-percent {
+        color: var(--secondary-400);
+      }
+    }
+
+    &.occupied {
+      border-color: rgba(244, 63, 94, 0.3);
+
+      .stat-icon {
+        background: rgba(244, 63, 94, 0.15);
+        color: var(--accent-400);
+      }
+
+      .stat-percent {
+        color: var(--accent-400);
+      }
+    }
+
+    &.reserved {
+      border-color: rgba(245, 158, 11, 0.3);
+
+      .stat-icon {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning-400);
+      }
+
+      .stat-percent {
+        color: var(--warning-400);
+      }
+    }
+  }
+}
+
+// 筛选栏
+.filter-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+
+  .filter-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+
+    @media (max-width: 1024px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-4);
+    flex: 1;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  .filter-item {
+    flex: 1;
+
+    label {
+      display: block;
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      color: var(--text-tertiary);
+      margin-bottom: var(--space-2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    :deep(.el-select) {
+      width: 100%;
+
+      .el-input__wrapper {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-md);
+        box-shadow: none;
+        padding: var(--space-2) var(--space-3);
+        height: 40px;
+
+        .el-input__inner {
+          color: var(--text-primary);
+          font-size: var(--text-sm);
         }
-        
-        &.occupied .value {
-          color: #F56C6C;
+
+        .el-input__icon {
+          color: var(--text-muted);
         }
-        
-        &.reserved .value {
-          color: #E6A23C;
+
+        &:hover {
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        &.is-focus {
+          border-color: var(--border-focus);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+      }
+
+      .el-select__placeholder {
+        color: var(--text-muted);
+      }
+
+      .status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: var(--space-2);
+
+        &.available { background: var(--secondary-500); }
+        &.occupied { background: var(--accent-500); }
+        &.reserved { background: var(--warning-500); }
+      }
+    }
+  }
+
+  .filter-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    transition: all 0.3s ease;
+
+    &:hover, &:focus-within {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .el-icon {
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    :deep(.el-input) {
+      flex: 1;
+
+      .el-input__wrapper {
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+
+        .el-input__inner {
+          color: var(--text-primary);
+          font-size: var(--text-sm);
+
+          &::placeholder {
+            color: var(--text-muted);
+          }
         }
       }
     }
   }
-  
-  .pagination-container {
-    margin-top: 20px;
+
+  .filter-actions {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-3);
   }
+
+  .filter-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: var(--text-primary);
+    }
+
+    &.primary {
+      background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+      border: none;
+      color: white;
+      box-shadow: var(--shadow-glow-primary);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      }
+    }
+
+    .el-icon {
+      font-size: 14px;
+    }
+  }
+}
+
+// 车位网格
+.spaces-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+.space-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+
+  &.animate-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+
+    .space-actions {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  &.status-available {
+    border-color: rgba(16, 185, 129, 0.3);
+
+    .space-status-icon {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--secondary-400);
+    }
+  }
+
+  &.status-occupied {
+    border-color: rgba(244, 63, 94, 0.3);
+
+    .space-status-icon {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-400);
+    }
+  }
+
+  &.status-reserved {
+    border-color: rgba(245, 158, 11, 0.3);
+
+    .space-status-icon {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning-400);
+    }
+  }
+
+  .space-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+
+    .space-code {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+    }
+
+    .space-type-badge {
+      padding: var(--space-1) var(--space-2);
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      border-radius: var(--radius-sm);
+
+      &.type-normal {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--primary-400);
+      }
+
+      &.type-vip {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning-400);
+      }
+
+      &.type-charging {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--secondary-400);
+      }
+    }
+  }
+
+  .space-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-4) 0;
+
+    .space-status-icon {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      margin-bottom: var(--space-3);
+
+      .el-icon {
+        font-size: 32px;
+      }
+    }
+
+    .space-status-text {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+    }
+  }
+
+  .space-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-3) 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: var(--space-3);
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+
+      .el-icon {
+        font-size: 12px;
+      }
+    }
+  }
+
+  .space-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+
+    .action-btn-small {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+      }
+
+      &.warning:hover {
+        background: rgba(245, 158, 11, 0.15);
+        border-color: rgba(245, 158, 11, 0.3);
+        color: var(--warning-400);
+      }
+
+      &.success:hover {
+        background: rgba(16, 185, 129, 0.15);
+        border-color: rgba(16, 185, 129, 0.3);
+        color: var(--secondary-400);
+      }
+
+      &.danger:hover {
+        background: rgba(244, 63, 94, 0.15);
+        border-color: rgba(244, 63, 94, 0.3);
+        color: var(--accent-400);
+      }
+
+      .el-icon {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+// 空状态
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-20);
+  text-align: center;
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    margin-bottom: var(--space-4);
+
+    .el-icon {
+      font-size: 40px;
+      color: var(--text-muted);
+    }
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+  }
+
+  p {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+  }
+}
+
+// 分页
+.pagination-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) 0;
+
+  .pagination-info {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+
+    .highlight {
+      color: var(--primary-400);
+      font-weight: var(--font-semibold);
+    }
+  }
+
+  :deep(.el-pagination) {
+    .el-pagination__sizes {
+      .el-select {
+        .el-input__wrapper {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: none;
+
+          .el-input__inner {
+            color: var(--text-primary);
+          }
+        }
+      }
+    }
+
+    .el-pager {
+      li {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
+
+        &:hover {
+          color: var(--text-primary);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        &.is-active {
+          background: var(--primary-500);
+          border-color: var(--primary-500);
+          color: white;
+        }
+      }
+    }
+
+    .btn-prev,
+    .btn-next {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+
+      &:hover {
+        color: var(--text-primary);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+      }
+    }
+
+    .el-pagination__jump {
+      color: var(--text-tertiary);
+
+      .el-input__wrapper {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: none;
+
+        .el-input__inner {
+          color: var(--text-primary);
+        }
+      }
+    }
+  }
+}
+
+// 表单样式
+.space-form {
+  .form-row {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  :deep(.el-form-item__label) {
+    color: var(--text-secondary);
+  }
+
+  :deep(.el-input__wrapper) {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+
+    .el-input__inner {
+      color: var(--text-primary);
+    }
+  }
+
+  :deep(.el-select) {
+    width: 100%;
+
+    .el-input__wrapper {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
+  }
+
+  :deep(.el-switch__label) {
+    color: var(--text-tertiary);
+
+    &.is-active {
+      color: var(--text-primary);
+    }
+  }
+}
+
+// 对话框底部
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+
+  .dialog-btn {
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:not(.primary) {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+      }
+    }
+
+    &.primary {
+      background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+      border: none;
+      color: white;
+      box-shadow: var(--shadow-glow-primary);
+
+      &:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      }
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+    }
+
+    .loading-text {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+
+      .loading-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

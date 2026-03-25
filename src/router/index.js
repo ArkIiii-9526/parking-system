@@ -63,6 +63,56 @@ const routes = [
         meta: { title: '计费规则管理', icon: 'Setting' }
       },
       {
+        path: 'parking-section',
+        name: 'ParkingSection',
+        component: () => import('@/views/parking-section/index.vue'),
+        meta: { title: '停车场分区', icon: 'MapLocation' }
+      },
+      {
+        path: 'analytics',
+        name: 'Analytics',
+        redirect: '/analytics/summary',
+        meta: { title: '数据分析', icon: 'TrendCharts' },
+        children: [
+          {
+            path: 'summary',
+            name: 'AnalyticsSummary',
+            component: () => import('@/views/analytics/summary.vue'),
+            meta: { title: '运营汇总', icon: 'DataLine' }
+          },
+          {
+            path: 'utilization',
+            name: 'AnalyticsUtilization',
+            component: () => import('@/views/analytics/utilization.vue'),
+            meta: { title: '利用率分析', icon: 'PieChart' }
+          },
+          {
+            path: 'income',
+            name: 'AnalyticsIncome',
+            component: () => import('@/views/analytics/income.vue'),
+            meta: { title: '收入分析', icon: 'Money' }
+          },
+          {
+            path: 'turnover',
+            name: 'AnalyticsTurnover',
+            component: () => import('@/views/analytics/turnover.vue'),
+            meta: { title: '周转率分析', icon: 'Refresh' }
+          },
+          {
+            path: 'trend',
+            name: 'AnalyticsTrend',
+            component: () => import('@/views/analytics/trend.vue'),
+            meta: { title: '趋势分析', icon: 'TrendCharts' }
+          }
+        ]
+      },
+      {
+        path: 'simulation',
+        name: 'Simulation',
+        component: () => import('@/views/simulation/index.vue'),
+        meta: { title: '模拟数据', icon: 'Cpu' }
+      },
+      {
         path: 'system',
         name: 'System',
         redirect: '/system/user',
@@ -85,6 +135,12 @@ const routes = [
             name: 'SystemPermission',
             component: () => import('@/views/system/permission-manage.vue'),
             meta: { title: '权限管理', icon: 'Lock' }
+          },
+          {
+            path: 'config',
+            name: 'SystemConfig',
+            component: () => import('@/views/system/config-manage.vue'),
+            meta: { title: '系统配置', icon: 'Tools' }
           }
         ]
       }

@@ -4,6 +4,30 @@ import { getUserInfo as getLocalUserInfo, setUserInfo, clearAll } from '@/utils/
 import { login, getUserInfo, logout } from '@/api/login'
 import router, { resetRouter } from '@/router'
 
+// 将后端菜单数据转换为前端路由格式
+function convertMenusToRouteFormat(menuList) {
+  if (!Array.isArray(menuList)) return []
+
+  return menuList.map(menu => {
+    const route = {
+      path: menu.url || '',
+      name: menu.permissionCode || menu.permissionName,
+      meta: {
+        title: menu.permissionName,
+        icon: menu.icon || 'Menu',
+        hidden: menu.status !== 1
+      }
+    }
+
+    // 如果有子菜单，递归转换
+    if (menu.children && menu.children.length > 0) {
+      route.children = convertMenusToRouteFormat(menu.children)
+    }
+
+    return route
+  })
+}
+
 export const useUserStore = defineStore('user', () => {
   const user = ref(getLocalUserInfo())
   const token = ref(localStorage.getItem('parking_token') || '')
@@ -21,15 +45,28 @@ export const useUserStore = defineStore('user', () => {
       if (res.code === 200) {
         // 检查res.data是否是数组（菜单数据直接返回数组的情况）
         if (Array.isArray(res.data)) {
-          // 如果是数组，说明直接返回了菜单数据
-          menus.value = res.data || []
-          // 保留现有用户信息，不设置为null
+          // 如果是数组，说明直接返回了菜单数据，需要转换格式
+          menus.value = convertMenusToRouteFormat(res.data) || []
+          // 从菜单数据中提取权限编码
+          const extractPermissions = (items) => {
+            const perms = []
+            items.forEach(item => {
+              if (item.permissionCode) {
+                perms.push(item.permissionCode)
+              }
+              if (item.children && item.children.length > 0) {
+                perms.push(...extractPermissions(item.children))
+              }
+            })
+            return perms
+          }
+          permissions.value = extractPermissions(res.data)
         } else {
           // 否则按正常格式处理
           user.value = res.data.user
           roles.value = res.data.roles || []
           permissions.value = res.data.permissions || []
-          menus.value = res.data.menus || []
+          menus.value = convertMenusToRouteFormat(res.data.menus) || []
         }
         setUserInfo({
           user: user.value,

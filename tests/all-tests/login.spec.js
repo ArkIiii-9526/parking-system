@@ -7,7 +7,7 @@ test.describe('登录功能测试', () => {
     
     // 填写登录表单
     await page.fill('input[type="text"]', 'admin');
-    await page.fill('input[type="password"]', '123456');
+    await page.fill('input[type="password"]', 'admin123');
     
     // 点击登录按钮
     await page.click('button[type="submit"]');

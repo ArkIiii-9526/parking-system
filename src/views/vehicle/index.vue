@@ -28,7 +28,7 @@
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleEntry" :loading="entryLoading">确认入场</el-button>
+              <el-button v-permission="'billing:entry'" type="primary" @click="handleEntry" :loading="entryLoading">确认入场</el-button>
               <el-button @click="handleEntryReset">重置</el-button>
             </el-form-item>
           </el-form>
@@ -52,7 +52,7 @@
               <el-input v-model="exitForm.carNo" placeholder="请输入车牌号" />
             </el-form-item>
             <el-form-item>
-              <el-button type="success" @click="handleExit" :loading="exitLoading">确认出场</el-button>
+              <el-button v-permission="'billing:exit'" type="success" @click="handleExit" :loading="exitLoading">确认出场</el-button>
               <el-button @click="handleExitReset">重置</el-button>
             </el-form-item>
           </el-form>
@@ -71,7 +71,7 @@
               <el-input v-model="queryForm.carNo" placeholder="请输入车牌号" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleQuery">查询</el-button>
+              <el-button v-permission="'billing:view'" type="primary" @click="handleQuery">查询</el-button>
             </el-form-item>
           </el-form>
           <div v-if="queryResult" class="query-result">

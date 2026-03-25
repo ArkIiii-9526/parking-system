@@ -1,139 +1,182 @@
 <template>
-  <header class="header">
+  <header class="main-header">
+    <!-- 左侧：面包屑和页面信息 -->
     <div class="header-left">
-      <el-button 
-        type="text" 
-        class="menu-toggle-btn" 
-        @click="toggleCollapse"
-        :title="isCollapse ? '展开菜单' : '收起菜单'"
-      >
-        <el-icon>
-          <component :is="isCollapse ? 'Expand' : 'Fold'" />
-        </el-icon>
-      </el-button>
-      <div class="breadcrumb-container">
-        <el-breadcrumb separator="">
-          <transition-group name="breadcrumb">
-            <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="item.path">
-              <span v-if="item.redirect === 'noRedirect' || index === breadcrumbs.length - 1" class="no-redirect">
-                {{ item.meta.title }}
-              </span>
-              <a v-else @click.prevent="handleLink(item)" class="breadcrumb-link">{{ item.meta.title }}</a>
-              <span v-if="index < breadcrumbs.length - 1" class="breadcrumb-separator">
-                <el-icon><Right /></el-icon>
-              </span>
-            </el-breadcrumb-item>
-          </transition-group>
+      <div class="breadcrumb-wrapper">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item :to="{ path: '/' }">
+            <el-icon><HomeFilled /></el-icon>
+            <span>首页</span>
+          </el-breadcrumb-item>
+          <el-breadcrumb-item v-if="route.meta?.title">
+            {{ route.meta.title }}
+          </el-breadcrumb-item>
         </el-breadcrumb>
       </div>
+      <h2 class="page-title">{{ route.meta?.title || '智慧停车系统' }}</h2>
     </div>
+
+    <!-- 右侧：工具栏 -->
     <div class="header-right">
-      <div class="header-actions">
-        <el-tooltip content="全屏" placement="bottom">
-          <el-button 
-            type="text" 
-            class="header-action-btn"
-            @click="toggleFullscreen"
-          >
-            <el-icon><FullScreen /></el-icon>
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="通知" placement="bottom">
-          <el-button 
-            type="text" 
-            class="header-action-btn"
-          >
+      <!-- 搜索 -->
+      <div class="search-box" :class="{ 'is-expanded': searchExpanded }">
+        <el-icon class="search-icon" @click="toggleSearch"><Search /></el-icon>
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索功能、车牌号..."
+          class="search-input"
+          @blur="searchExpanded = false"
+        />
+      </div>
+
+      <!-- 通知 -->
+      <el-popover
+        placement="bottom-end"
+        :width="360"
+        trigger="click"
+        popper-class="notification-popover"
+      >
+        <template #reference>
+          <button class="header-btn notification-btn">
             <el-icon><Bell /></el-icon>
-          </el-button>
-        </el-tooltip>
-        <el-tooltip content="设置" placement="bottom">
-          <el-button 
-            type="text" 
-            class="header-action-btn"
-          >
-            <el-icon><Setting /></el-icon>
-          </el-button>
-        </el-tooltip>
-      </div>
-      <div class="user-profile">
-        <el-dropdown trigger="click" @command="handleCommand">
-          <div class="user-info">
-            <el-avatar :size="36" :src="userStore.avatar" class="user-avatar">
-              <el-icon><User /></el-icon>
-            </el-avatar>
-            <div v-if="!isMobile" class="user-details">
-              <span class="username">{{ userStore.userName }}</span>
-              <span class="user-role">管理员</span>
-            </div>
-            <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
+            <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+          </button>
+        </template>
+        <div class="notification-panel">
+          <div class="notification-header">
+            <h4>通知消息</h4>
+            <button class="mark-all-read" @click="markAllRead">全部已读</button>
           </div>
-          <template #dropdown>
-            <el-dropdown-menu class="user-dropdown">
-              <el-dropdown-item command="profile" class="dropdown-item">
-                <el-icon class="dropdown-item-icon"><User /></el-icon>
-                <span>个人中心</span>
-              </el-dropdown-item>
-              <el-dropdown-item command="settings" class="dropdown-item">
-                <el-icon class="dropdown-item-icon"><Setting /></el-icon>
-                <span>账号设置</span>
-              </el-dropdown-item>
-              <el-dropdown-item divided command="logout" class="dropdown-item">
-                <el-icon class="dropdown-item-icon"><SwitchButton /></el-icon>
-                <span>退出登录</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
+          <div class="notification-list">
+            <div 
+              v-for="(notice, index) in notifications" 
+              :key="index"
+              class="notification-item"
+              :class="{ 'is-unread': !notice.read }"
+            >
+              <div class="notice-icon" :class="notice.type">
+                <el-icon>
+                  <component :is="notice.icon" />
+                </el-icon>
+              </div>
+              <div class="notice-content">
+                <p class="notice-title">{{ notice.title }}</p>
+                <p class="notice-time">{{ notice.time }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="notification-footer">
+            <button class="view-all">查看全部通知</button>
+          </div>
+        </div>
+      </el-popover>
+
+      <!-- 全屏 -->
+      <button class="header-btn" @click="toggleFullscreen">
+        <el-icon>
+          <component :is="isFullscreen ? 'FullScreen' : 'FullScreen'" />
+        </el-icon>
+      </button>
+
+      <!-- 主题切换 -->
+      <button class="header-btn theme-btn" @click="toggleTheme">
+        <el-icon>
+          <component :is="isDark ? 'Sunny' : 'Moon'" />
+        </el-icon>
+      </button>
+
+      <!-- 用户菜单 -->
+      <el-dropdown trigger="click" @command="handleCommand">
+        <div class="user-menu-trigger">
+          <el-avatar :size="36" :src="userStore.avatar" class="user-avatar">
+            <el-icon><User /></el-icon>
+          </el-avatar>
+          <div class="user-info">
+            <span class="user-name">{{ userStore.userName }}</span>
+            <span class="user-role">管理员</span>
+          </div>
+          <el-icon class="dropdown-arrow"><ArrowDown /></el-icon>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu class="user-dropdown">
+            <el-dropdown-item command="profile">
+              <el-icon><User /></el-icon>
+              <span>个人中心</span>
+            </el-dropdown-item>
+            <el-dropdown-item command="settings">
+              <el-icon><Setting /></el-icon>
+              <span>系统设置</span>
+            </el-dropdown-item>
+            <el-dropdown-item divided command="logout">
+              <el-icon><SwitchButton /></el-icon>
+              <span>退出登录</span>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import screenfull from 'screenfull'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const props = defineProps({
-  isCollapse: {
-    type: Boolean,
-    default: false
+const searchExpanded = ref(false)
+const searchQuery = ref('')
+const isFullscreen = ref(false)
+const isDark = ref(true)
+const unreadCount = ref(3)
+
+const notifications = ref([
+  { title: '车辆入场提醒', time: '5分钟前', read: false, type: 'info', icon: 'InfoFilled' },
+  { title: '车位即将满位', time: '15分钟前', read: false, type: 'warning', icon: 'WarningFilled' },
+  { title: '系统更新完成', time: '1小时前', read: true, type: 'success', icon: 'CircleCheckFilled' },
+  { title: '新的停车记录', time: '2小时前', read: true, type: 'primary', icon: 'Document' }
+])
+
+function toggleSearch() {
+  searchExpanded.value = !searchExpanded.value
+  if (searchExpanded.value) {
+    setTimeout(() => {
+      document.querySelector('.search-input input')?.focus()
+    }, 100)
   }
-})
-
-const isMobile = ref(false)
-
-const breadcrumbs = computed(() => {
-  const matched = route.matched.filter(item => item.meta && item.meta.title)
-  return matched.filter(item => item.meta.title && item.meta.breadcrumb !== false)
-})
-
-function toggleCollapse() {
-  emit('collapse', !props.isCollapse)
 }
 
 function toggleFullscreen() {
-  if (screenfull.isEnabled) {
-    screenfull.toggle()
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen()
+    isFullscreen.value = true
+  } else {
+    document.exitFullscreen()
+    isFullscreen.value = false
   }
 }
 
-function handleLink(item) {
-  const { redirect, path } = item
-  if (redirect) {
-    router.push(redirect)
+function toggleTheme() {
+  isDark.value = !isDark.value
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
   } else {
-    router.push(path)
+    document.documentElement.classList.remove('dark')
   }
+  ElMessage.info(isDark.value ? '已切换到深色模式' : '已切换到浅色模式')
+}
+
+function markAllRead() {
+  notifications.value.forEach(n => n.read = true)
+  unreadCount.value = 0
 }
 
 function handleCommand(command) {
-  switch (command) {
+  switch(command) {
     case 'profile':
       router.push('/profile')
       break
@@ -146,224 +189,431 @@ function handleCommand(command) {
   }
 }
 
-function checkMobile() {
-  isMobile.value = window.innerWidth < 768
+function updateFullscreenState() {
+  isFullscreen.value = !!document.fullscreenElement
 }
 
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
+  document.addEventListener('fullscreenchange', updateFullscreenState)
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+  }
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
+  document.removeEventListener('fullscreenchange', updateFullscreenState)
 })
-
-const emit = defineEmits(['collapse'])
 </script>
 
 <style lang="scss" scoped>
-.header {
+.main-header {
   height: var(--header-height);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--spacing-lg);
-  box-sizing: border-box;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  padding: 0 var(--space-6);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
 }
 
+// 左侧区域
 .header-left {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
   
-  .menu-toggle-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--border-radius-base);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    color: var(--text-regular);
-    
-    &:hover {
-      background-color: var(--surface-light);
-      color: var(--primary-color);
+  .breadcrumb-wrapper {
+    :deep(.el-breadcrumb) {
+      font-size: var(--text-xs);
+      
+      .el-breadcrumb__item {
+        color: var(--text-muted);
+        
+        .el-breadcrumb__inner {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
+          color: var(--text-muted);
+          transition: color 0.3s ease;
+          
+          &:hover {
+            color: var(--text-primary);
+          }
+          
+          .el-icon {
+            font-size: 14px;
+          }
+        }
+        
+        &:last-child .el-breadcrumb__inner {
+          color: var(--text-primary);
+          font-weight: var(--font-medium);
+        }
+      }
+      
+      .el-breadcrumb__separator {
+        color: var(--text-muted);
+      }
     }
+  }
+  
+  .page-title {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    margin: 0;
   }
 }
 
-.breadcrumb-container {
-  flex: 1;
-  overflow: hidden;
-  
-  .breadcrumb-link {
-    color: var(--primary-color);
-    transition: color 0.2s ease;
-    
-    &:hover {
-      color: var(--primary-light);
-      text-decoration: underline;
-    }
-  }
-  
-  .no-redirect {
-    color: var(--text-secondary);
-    cursor: text;
-  }
-  
-  .breadcrumb-separator {
-    margin: 0 var(--spacing-sm);
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-  }
-}
-
+// 右侧区域
 .header-right {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--space-3);
 }
 
-.header-actions {
+// 搜索框
+.search-box {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  transition: all 0.3s ease;
+  width: 40px;
+  overflow: hidden;
   
-  .header-action-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--border-radius-base);
+  &:hover, &.is-expanded {
+    width: 280px;
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+  }
+  
+  .search-icon {
+    font-size: 16px;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  
+  .search-input {
+    :deep(.el-input__wrapper) {
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+      
+      .el-input__inner {
+        color: var(--text-primary);
+        font-size: var(--text-sm);
+        
+        &::placeholder {
+          color: var(--text-muted);
+        }
+      }
+    }
+  }
+}
+
+// 头部按钮
+.header-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+    transform: translateY(-2px);
+  }
+  
+  .el-icon {
+    font-size: 18px;
+  }
+}
+
+.notification-btn {
+  .notification-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: var(--font-semibold);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
-    color: var(--text-regular);
-    
-    &:hover {
-      background-color: var(--surface-light);
-      color: var(--primary-color);
-    }
+    box-shadow: 0 2px 8px rgba(244, 63, 94, 0.4);
   }
 }
 
-.user-profile {
+.theme-btn {
+  &:hover {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+    border-color: rgba(245, 158, 11, 0.3);
+    color: var(--warning-400);
+  }
+}
+
+// 用户菜单
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .user-avatar {
+    border: 2px solid rgba(255, 255, 255, 0.1);
+  }
+  
   .user-info {
     display: flex;
-    align-items: center;
-    cursor: pointer;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--border-radius-base);
-    transition: all 0.2s ease;
+    flex-direction: column;
+    gap: 2px;
     
-    &:hover {
-      background-color: var(--surface-light);
-    }
-    
-    .user-avatar {
-      border: 2px solid var(--border-color-light);
-      transition: all 0.2s ease;
-      
-      &:hover {
-        border-color: var(--primary-color);
-      }
-    }
-    
-    .user-details {
-      margin: 0 var(--spacing-sm);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    
-    .username {
-      font-size: var(--font-size-base);
-      font-weight: 500;
+    .user-name {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
       color: var(--text-primary);
-      white-space: nowrap;
     }
     
     .user-role {
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-      white-space: nowrap;
-    }
-    
-    .dropdown-icon {
-      font-size: 14px;
-      color: var(--text-secondary);
-      transition: all 0.2s ease;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
     }
   }
   
-  .user-dropdown {
-    border-radius: var(--border-radius-base);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    border: 1px solid var(--border-color);
-    padding: var(--spacing-xs) 0;
+  .dropdown-arrow {
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: transform 0.3s ease;
+  }
+  
+  &:hover .dropdown-arrow {
+    transform: rotate(180deg);
+  }
+}
+
+// 用户下拉菜单
+:deep(.user-dropdown) {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  
+  .el-dropdown-menu__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all 0.3s ease;
     
-    .dropdown-item {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      padding: var(--spacing-sm) var(--spacing-md);
-      transition: all 0.2s ease;
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+    
+    .el-icon {
+      font-size: 16px;
+    }
+  }
+  
+  .el-dropdown-menu__item--divided {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: var(--space-2) 0;
+    
+    &:before {
+      display: none;
+    }
+  }
+}
+
+// 通知面板
+:deep(.notification-popover) {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  padding: 0;
+  box-shadow: var(--shadow-xl);
+}
+
+.notification-panel {
+  .notification-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      margin: 0;
+    }
+    
+    .mark-all-read {
+      font-size: var(--text-sm);
+      color: var(--primary-400);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.3s ease;
       
       &:hover {
-        background-color: var(--surface-light);
+        color: var(--primary-300);
+      }
+    }
+  }
+  
+  .notification-list {
+    max-height: 320px;
+    overflow-y: auto;
+    
+    .notification-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background 0.3s ease;
+      cursor: pointer;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.03);
       }
       
-      .dropdown-item-icon {
-        font-size: 16px;
+      &.is-unread {
+        background: rgba(99, 102, 241, 0.05);
+        
+        .notice-title {
+          font-weight: var(--font-medium);
+          color: var(--text-primary);
+        }
+      }
+      
+      .notice-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        flex-shrink: 0;
+        
+        &.info {
+          background: rgba(99, 102, 241, 0.15);
+          color: var(--primary-400);
+        }
+        
+        &.warning {
+          background: rgba(245, 158, 11, 0.15);
+          color: var(--warning-400);
+        }
+        
+        &.success {
+          background: rgba(16, 185, 129, 0.15);
+          color: var(--secondary-400);
+        }
+        
+        &.primary {
+          background: rgba(99, 102, 241, 0.15);
+          color: var(--primary-400);
+        }
+        
+        .el-icon {
+          font-size: 18px;
+        }
+      }
+      
+      .notice-content {
+        flex: 1;
+        
+        .notice-title {
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
+          margin-bottom: var(--space-1);
+        }
+        
+        .notice-time {
+          font-size: var(--text-xs);
+          color: var(--text-muted);
+        }
+      }
+    }
+  }
+  
+  .notification-footer {
+    padding: var(--space-3) var(--space-5);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    text-align: center;
+    
+    .view-all {
+      font-size: var(--text-sm);
+      color: var(--primary-400);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.3s ease;
+      
+      &:hover {
+        color: var(--primary-300);
       }
     }
   }
 }
 
-// 响应式设计
+// 响应式
 @media (max-width: 768px) {
-  .header {
-    padding: 0 var(--spacing-md);
+  .main-header {
+    padding: 0 var(--space-4);
   }
   
-  .user-details {
-    display: none !important;
+  .header-left {
+    .page-title {
+      font-size: var(--text-lg);
+    }
   }
   
-  .breadcrumb-container {
+  .user-info {
     display: none;
   }
-}
-
-@media (max-width: 480px) {
-  .header {
-    padding: 0 var(--spacing-sm);
-  }
   
-  .header-actions {
-    gap: 0;
-    
-    .header-action-btn {
-      width: 36px;
-      height: 36px;
-    }
-  }
-  
-  .user-profile {
-    .user-info {
-      padding: var(--spacing-xs);
-      
-      .user-avatar {
-        width: 32px;
-        height: 32px;
-      }
-    }
+  .search-box {
+    display: none;
   }
 }
 </style>

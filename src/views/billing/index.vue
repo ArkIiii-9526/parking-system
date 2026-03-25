@@ -31,7 +31,7 @@
             <el-icon><Refresh /></el-icon>
             重置
           </el-button>
-          <el-button type="success" @click="handleExport">
+          <el-button v-permission="'billing:export'" type="success" @click="handleExport">
             <el-icon><Download /></el-icon>
             导出
           </el-button>

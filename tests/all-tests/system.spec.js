@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 async function login(page) {
   await page.goto('/');
   await page.fill('input[type="text"]', 'admin');
-  await page.fill('input[type="password"]', '123456');
+  await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
   await expect(page).toHaveURL('/#/dashboard');
 }

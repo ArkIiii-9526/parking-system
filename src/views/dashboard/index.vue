@@ -1,145 +1,197 @@
 <template>
-  <div class="dashboard-container">
-    <el-row :gutter="24">
-      <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon parking">
-            <el-icon><Van /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.totalParkings }}</div>
-            <div class="stat-label">停车场总数</div>
+  <div class="dashboard-page">
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">
+          <span class="title-icon">
+            <el-icon><DataBoard /></el-icon>
+          </span>
+          数据概览
+        </h1>
+        <p class="page-subtitle">实时监控停车场运营状态</p>
+      </div>
+      <div class="header-actions">
+        <button class="action-btn" @click="refreshData">
+          <el-icon><Refresh /></el-icon>
+          <span>刷新数据</span>
+        </button>
+        <button class="action-btn primary">
+          <el-icon><Download /></el-icon>
+          <span>导出报表</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 统计卡片区域 -->
+    <div class="stats-grid">
+      <div 
+        v-for="(stat, index) in statsCards" 
+        :key="stat.key"
+        class="stat-card"
+        :class="[`stat-card--${stat.type}`, { 'animate-in': animated }]"
+        :style="{ animationDelay: `${index * 100}ms` }"
+      >
+        <div class="stat-glow"></div>
+        <div class="stat-icon">
+          <el-icon>
+            <component :is="stat.icon" />
+          </el-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stat.value }}</div>
+          <div class="stat-label">{{ stat.label }}</div>
+          <div v-if="stat.trend" class="stat-trend" :class="stat.trend.type">
+            <el-icon>
+              <component :is="stat.trend.type === 'up' ? ArrowUp : ArrowDown" />
+            </el-icon>
+            <span>{{ stat.trend.value }}%</span>
           </div>
         </div>
-      </el-col>
-      <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon spaces">
-            <el-icon><Grid /></el-icon>
+      </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="dashboard-grid">
+      <!-- 左侧：使用率图表 -->
+      <div class="dashboard-card chart-card">
+        <div class="card-header">
+          <div class="header-title">
+            <el-icon><PieChart /></el-icon>
+            <span>车位使用率</span>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.totalSpaces }}</div>
-            <div class="stat-label">停车位总数</div>
-          </div>
-        </div>
-      </el-col>
-      <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon available">
-            <el-icon><CircleCheck /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ stats.availableSpaces }}</div>
-            <div class="stat-label">可用车位</div>
+          <div class="header-actions">
+            <el-radio-group v-model="chartPeriod" size="small">
+              <el-radio-button label="day">今日</el-radio-button>
+              <el-radio-button label="week">本周</el-radio-button>
+              <el-radio-button label="month">本月</el-radio-button>
+            </el-radio-group>
           </div>
         </div>
-      </el-col>
-      <el-col :span="6">
-        <div class="stat-card">
-          <div class="stat-icon revenue">
-            <el-icon><Money /></el-icon>
+        <div class="card-body">
+          <div class="usage-chart">
+            <div class="chart-center">
+              <div class="center-value">{{ stats.usageRate }}%</div>
+              <div class="center-label">当前使用率</div>
+            </div>
+            <svg class="circular-chart" viewBox="0 0 200 200">
+              <defs>
+                <linearGradient id="chartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#6366F1"/>
+                  <stop offset="100%" style="stop-color:#10B981"/>
+                </linearGradient>
+              </defs>
+              <circle class="chart-bg" cx="100" cy="100" r="80"/>
+              <circle 
+                class="chart-progress" 
+                cx="100" 
+                cy="100" 
+                r="80"
+                :style="{ strokeDashoffset: 502 - (502 * stats.usageRate / 100) }"
+              />
+            </svg>
           </div>
-          <div class="stat-info">
-            <div class="stat-value">¥{{ stats.todayRevenue }}</div>
-            <div class="stat-label">今日营收</div>
+          <div class="usage-legend">
+            <div class="legend-item">
+              <div class="legend-dot used"></div>
+              <span class="legend-label">已使用</span>
+              <span class="legend-value">{{ stats.totalSpaces - stats.availableSpaces }} 个</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot available"></div>
+              <span class="legend-label">空闲</span>
+              <span class="legend-value">{{ stats.availableSpaces }} 个</span>
+            </div>
           </div>
         </div>
-      </el-col>
-    </el-row>
-    
-    <el-row :gutter="24" class="mt-4">
-      <el-col :span="16">
-        <div class="card">
-          <div class="card-header">
-            <h3>停车位使用情况</h3>
+      </div>
+
+      <!-- 右侧：快速操作 -->
+      <div class="dashboard-card actions-card">
+        <div class="card-header">
+          <div class="header-title">
+            <el-icon><Lightning /></el-icon>
+            <span>快速操作</span>
           </div>
-          <div class="card-body">
-            <div class="parking-status">
-              <div class="status-item">
-                <div class="status-header">
-                  <span class="status-label">占用</span>
-                  <span class="status-percentage">{{ stats.usageRate }}%</span>
-                </div>
-                <el-progress 
-                  :percentage="stats.usageRate" 
-                  :stroke-width="12"
-                  status="success"
-                  class="status-progress"
-                />
+        </div>
+        <div class="card-body">
+          <div class="quick-actions">
+            <button 
+              v-for="action in quickActions" 
+              :key="action.key"
+              class="quick-action-btn"
+              :class="action.type"
+              @click="handleQuickAction(action.key)"
+            >
+              <div class="action-icon">
+                <el-icon>
+                  <component :is="action.icon" />
+                </el-icon>
               </div>
-              <div class="status-item">
-                <div class="status-header">
-                  <span class="status-label">空闲</span>
-                  <span class="status-percentage">{{ 100 - stats.usageRate }}%</span>
-                </div>
-                <el-progress 
-                  :percentage="100 - stats.usageRate" 
-                  :stroke-width="12"
-                  status="info"
-                  class="status-progress"
-                />
+              <div class="action-info">
+                <span class="action-name">{{ action.name }}</span>
+                <span class="action-desc">{{ action.desc }}</span>
+              </div>
+              <el-icon class="action-arrow"><ArrowRight /></el-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部：最近记录 -->
+    <div class="dashboard-card records-card">
+      <div class="card-header">
+        <div class="header-title">
+          <el-icon><Clock /></el-icon>
+          <span>最近车辆进出记录</span>
+        </div>
+        <button class="view-all-btn">
+          查看全部
+          <el-icon><ArrowRight /></el-icon>
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="records-table">
+          <div class="table-header">
+            <div class="th">车牌号</div>
+            <div class="th">停车场</div>
+            <div class="th">入场时间</div>
+            <div class="th">出场时间</div>
+            <div class="th">状态</div>
+            <div class="th">费用</div>
+          </div>
+          <div class="table-body">
+            <div 
+              v-for="(record, index) in recentRecords" 
+              :key="index"
+              class="table-row"
+              :class="{ 'slide-in': animated }"
+              :style="{ animationDelay: `${300 + index * 50}ms` }"
+            >
+              <div class="td plate">
+                <span class="plate-number">{{ record.carNo }}</span>
+              </div>
+              <div class="td">{{ record.parkingName }}</div>
+              <div class="td time">{{ formatTime(record.entryTime) }}</div>
+              <div class="td time">
+                <span v-if="record.exitTime">{{ formatTime(record.exitTime) }}</span>
+                <span v-else class="in-progress">停车中...</span>
+              </div>
+              <div class="td">
+                <span class="status-badge" :class="record.status === 1 ? 'completed' : 'active'">
+                  {{ record.status === 1 ? '已出场' : '在场' }}
+                </span>
+              </div>
+              <div class="td fee">
+                <span v-if="record.fee">¥{{ record.fee }}</span>
+                <span v-else class="calculating">计算中</span>
               </div>
             </div>
           </div>
         </div>
-      </el-col>
-      <el-col :span="8">
-        <div class="card">
-          <div class="card-header">
-            <h3>快速操作</h3>
-          </div>
-          <div class="card-body">
-            <div class="quick-actions">
-              <el-button type="primary" @click="handleQuickEntry" class="action-btn primary">
-                <el-icon class="btn-icon"><Plus /></el-icon>
-                <span>车辆入场</span>
-              </el-button>
-              <el-button type="success" @click="handleQuickExit" class="action-btn success">
-                <el-icon class="btn-icon"><Minus /></el-icon>
-                <span>车辆出场</span>
-              </el-button>
-              <el-button type="warning" @click="handleQuickQuery" class="action-btn warning">
-                <el-icon class="btn-icon"><Search /></el-icon>
-                <span>车辆查询</span>
-              </el-button>
-            </div>
-          </div>
-        </div>
-      </el-col>
-    </el-row>
-    
-    <el-row :gutter="24" class="mt-4">
-      <el-col :span="24">
-        <div class="card">
-          <div class="card-header">
-            <h3>最近车辆进出记录</h3>
-          </div>
-          <div class="card-body">
-            <el-table :data="recentRecords" class="records-table">
-              <el-table-column prop="carNo" label="车牌号" width="150" />
-              <el-table-column prop="parkingName" label="停车场" width="200" />
-              <el-table-column prop="entryTime" label="入场时间" width="180">
-                <template #default="{ row }">
-                  {{ formatTime(row.entryTime) }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="exitTime" label="出场时间" width="180">
-                <template #default="{ row }">
-                  {{ row.exitTime ? formatTime(row.exitTime) : '-' }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.status === 1 ? 'success' : 'warning'" class="status-tag">
-                    {{ row.status === 1 ? '已出场' : '在场' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </div>
-      </el-col>
-    </el-row>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -148,6 +200,11 @@ import { ref, reactive, onMounted } from 'vue'
 import { getParkingPage } from '@/api/parking'
 import { getDailyStatistics } from '@/api/billing'
 import { getVehicleRecordsByParking } from '@/api/vehicle'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const animated = ref(false)
+const chartPeriod = ref('day')
 
 const stats = reactive({
   totalParkings: 0,
@@ -157,11 +214,75 @@ const stats = reactive({
   usageRate: 0
 })
 
+const statsCards = ref([
+  {
+    key: 'parkings',
+    icon: 'OfficeBuilding',
+    value: '0',
+    label: '停车场总数',
+    type: 'primary'
+  },
+  {
+    key: 'spaces',
+    icon: 'Grid',
+    value: '0',
+    label: '停车位总数',
+    type: 'success'
+  },
+  {
+    key: 'available',
+    icon: 'CircleCheck',
+    value: '0',
+    label: '可用车位',
+    type: 'warning'
+  },
+  {
+    key: 'revenue',
+    icon: 'Money',
+    value: '¥0',
+    label: '今日营收',
+    type: 'accent'
+  }
+])
+
+const quickActions = [
+  { key: 'entry', name: '车辆入场', desc: '快速登记入场车辆', icon: 'Plus', type: 'primary' },
+  { key: 'exit', name: '车辆出场', desc: '处理车辆出场结算', icon: 'Minus', type: 'success' },
+  { key: 'query', name: '车辆查询', desc: '查询车辆停放信息', icon: 'Search', type: 'info' }
+]
+
 const recentRecords = ref([])
 
 function formatTime(time) {
   if (!time) return '-'
-  return new Date(time).toLocaleString('zh-CN')
+  return new Date(time).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function handleQuickAction(key) {
+  switch(key) {
+    case 'entry':
+      router.push('/vehicle?action=entry')
+      break
+    case 'exit':
+      router.push('/vehicle?action=exit')
+      break
+    case 'query':
+      router.push('/vehicle')
+      break
+  }
+}
+
+function refreshData() {
+  animated.value = false
+  setTimeout(() => {
+    animated.value = true
+  }, 100)
+  loadDashboardData()
 }
 
 async function loadDashboardData() {
@@ -179,10 +300,15 @@ async function loadDashboardData() {
         stats.usageRate = Math.round(((stats.totalSpaces - stats.availableSpaces) / stats.totalSpaces) * 100)
       }
       
+      // 更新统计卡片
+      statsCards.value[0].value = stats.totalParkings.toString()
+      statsCards.value[1].value = stats.totalSpaces.toString()
+      statsCards.value[2].value = stats.availableSpaces.toString()
+      
       // 获取车辆记录
       if (parkings.length > 0) {
         try {
-          const recordsRes = await getVehicleRecordsByParking(parkings[0].id, { pageNo: 1, pageSize: 10 })
+          const recordsRes = await getVehicleRecordsByParking(parkings[0].id, { pageNo: 1, pageSize: 5 })
           if (recordsRes.code === 200) {
             recentRecords.value = (recordsRes.data?.records || []).map(record => ({
               ...record,
@@ -191,329 +317,677 @@ async function loadDashboardData() {
           }
         } catch (e) {
           console.error('获取车辆记录失败:', e)
-          // 不显示错误提示，避免影响用户体验
         }
       }
     }
     
     // 获取营收数据
-    let formattedDate = ''
     try {
-      // 使用YYYY-MM-DD格式的日期，符合后端API预期
       const today = new Date()
-      formattedDate = today.toISOString().split('T')[0]
-      // 确保date参数是字符串类型，避免JavaScript将其解析为数字表达式
+      const formattedDate = today.toISOString().split('T')[0]
       const revenueRes = await getDailyStatistics({ date: String(formattedDate) })
       if (revenueRes.code === 200 && revenueRes.data) {
         stats.todayRevenue = revenueRes.data.totalAmount || 0
+        statsCards.value[3].value = `¥${stats.todayRevenue.toLocaleString()}`
       }
     } catch (e) {
       console.error('获取营收数据失败:', e)
-      console.error('请求参数:', { date: formattedDate })
-      // 添加更详细的错误信息，方便调试
-      if (e.response) {
-        console.error('响应状态:', e.response.status)
-        console.error('响应数据:', e.response.data)
-      } else if (e.request) {
-        console.error('无响应数据，请求可能未到达后端')
-      }
     }
   } catch (error) {
     console.error('加载数据失败:', error)
-    // 不显示错误提示，避免影响用户体验
   }
-}
-
-function handleQuickEntry() {
-  // TODO: 打开车辆入场对话框
-}
-
-function handleQuickExit() {
-  // TODO: 打开车辆出场对话框
-}
-
-function handleQuickQuery() {
-  // TODO: 打开车辆查询对话框
 }
 
 onMounted(() => {
   loadDashboardData()
+  setTimeout(() => {
+    animated.value = true
+  }, 100)
 })
 </script>
 
 <style lang="scss" scoped>
-.dashboard-container {
-  padding: 0;
-  overflow: hidden;
+.dashboard-page {
+  padding: var(--space-6);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+// 页面标题
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+  
+  .header-content {
+    .page-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+      
+      .title-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-glow-primary);
+        
+        .el-icon {
+          font-size: 24px;
+        }
+      }
+    }
+    
+    .page-subtitle {
+      font-size: var(--text-base);
+      color: var(--text-tertiary);
+      padding-left: calc(48px + var(--space-3));
+    }
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: var(--space-3);
+    
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-5);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+      }
+      
+      &.primary {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        border: none;
+        color: white;
+        box-shadow: var(--shadow-glow-primary);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        }
+      }
+      
+      .el-icon {
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// 统计卡片网格
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+  
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat-card {
-  background: var(--surface);
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  padding: var(--spacing-lg);
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
   display: flex;
   align-items: center;
-  transition: all 0.3s ease;
+  gap: var(--space-5);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  
+  &.animate-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
   
   &:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+  
+  .stat-glow {
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    opacity: 0.1;
+    pointer-events: none;
+  }
+  
+  &--primary .stat-glow {
+    background: radial-gradient(circle, var(--primary-500) 0%, transparent 70%);
+  }
+  
+  &--success .stat-glow {
+    background: radial-gradient(circle, var(--secondary-500) 0%, transparent 70%);
+  }
+  
+  &--warning .stat-glow {
+    background: radial-gradient(circle, var(--warning-500) 0%, transparent 70%);
+  }
+  
+  &--accent .stat-glow {
+    background: radial-gradient(circle, var(--accent-500) 0%, transparent 70%);
   }
   
   .stat-icon {
     width: 64px;
     height: 64px;
-    border-radius: var(--border-radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: var(--spacing-md);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-lg);
+    font-size: 28px;
+    position: relative;
+    z-index: 1;
     
     .el-icon {
-      font-size: 32px;
-      color: var(--white);
-    }
-    
-    &.parking {
-      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-    }
-    
-    &.spaces {
-      background: linear-gradient(135deg, var(--success-color) 0%, #388e3c 100%);
-    }
-    
-    &.available {
-      background: linear-gradient(135deg, var(--warning-color) 0%, #e65100 100%);
-    }
-    
-    &.revenue {
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      color: white;
     }
   }
   
-  .stat-info {
+  &--primary .stat-icon {
+    background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+    box-shadow: var(--shadow-glow-primary);
+  }
+  
+  &--success .stat-icon {
+    background: linear-gradient(135deg, var(--secondary-500), var(--secondary-600));
+    box-shadow: var(--shadow-glow-secondary);
+  }
+  
+  &--warning .stat-icon {
+    background: linear-gradient(135deg, var(--warning-500), var(--warning-600));
+  }
+  
+  &--accent .stat-icon {
+    background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
+    box-shadow: var(--shadow-glow-accent);
+  }
+  
+  .stat-content {
     flex: 1;
+    position: relative;
+    z-index: 1;
     
     .stat-value {
-      font-size: 32px;
-      font-weight: 700;
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
       color: var(--text-primary);
       line-height: 1.2;
-      margin-bottom: var(--spacing-xs);
+      margin-bottom: var(--space-1);
     }
     
     .stat-label {
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: var(--text-sm);
+      color: var(--text-tertiary);
+      margin-bottom: var(--space-2);
+    }
+    
+    .stat-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-full);
+      
+      &.up {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--secondary-400);
+      }
+      
+      &.down {
+        background: rgba(244, 63, 94, 0.2);
+        color: var(--accent-400);
+      }
+      
+      .el-icon {
+        font-size: 12px;
+      }
     }
   }
 }
 
-.card {
-  background: var(--surface);
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  transition: all 0.3s ease;
+// 仪表板网格
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
   
-  &:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
   }
+}
+
+// 通用卡片样式
+.dashboard-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
   
   .card-header {
-    padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--border-color);
-    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-5) var(--space-6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     
-    h3 {
-      margin: 0;
-      font-size: var(--font-size-lg);
-      font-weight: 600;
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
       color: var(--text-primary);
+      
+      .el-icon {
+        font-size: 20px;
+        color: var(--primary-400);
+      }
+    }
+    
+    .header-actions {
+      :deep(.el-radio-group) {
+        .el-radio-button__inner {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.1);
+          color: var(--text-tertiary);
+          
+          &:hover {
+            color: var(--text-primary);
+          }
+        }
+        
+        .el-radio-button__original-radio:checked + .el-radio-button__inner {
+          background: var(--primary-500);
+          border-color: var(--primary-500);
+          color: white;
+          box-shadow: -1px 0 0 0 var(--primary-500);
+        }
+      }
+    }
+    
+    .view-all-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      font-size: var(--text-sm);
+      color: var(--primary-400);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        color: var(--primary-300);
+        gap: var(--space-2);
+      }
     }
   }
   
   .card-body {
-    padding: var(--spacing-lg);
+    padding: var(--space-6);
+  }
+}
+
+// 图表卡片
+.chart-card {
+  .card-body {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
   }
   
-  .parking-status {
-    .status-item {
-      margin-bottom: var(--spacing-lg);
+  .usage-chart {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    flex-shrink: 0;
+    
+    .chart-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 1;
       
-      .status-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: var(--spacing-sm);
-        
-        .status-label {
-          font-size: var(--font-size-base);
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-        
-        .status-percentage {
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
+      .center-value {
+        font-family: var(--font-display);
+        font-size: var(--text-4xl);
+        font-weight: var(--font-bold);
+        background: linear-gradient(135deg, var(--primary-400), var(--secondary-400));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
       
-      .status-progress {
-        .el-progress__bar {
-          border-radius: var(--border-radius-sm);
-        }
-        
-        .el-progress__text {
-          font-size: var(--font-size-xs);
-          color: var(--text-secondary);
-        }
+      .center-label {
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+        margin-top: var(--space-1);
+      }
+    }
+    
+    .circular-chart {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+      
+      .chart-bg {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.1);
+        stroke-width: 12;
+      }
+      
+      .chart-progress {
+        fill: none;
+        stroke: url(#chartGradient);
+        stroke-width: 12;
+        stroke-linecap: round;
+        stroke-dasharray: 502;
+        transition: stroke-dashoffset 1s ease-out;
       }
     }
   }
   
+  .usage-legend {
+    flex: 1;
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: var(--radius-full);
+        
+        &.used {
+          background: linear-gradient(135deg, var(--primary-500), var(--secondary-500));
+        }
+        
+        &.available {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      }
+      
+      .legend-label {
+        flex: 1;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+      }
+      
+      .legend-value {
+        font-family: var(--font-display);
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+      }
+    }
+  }
+}
+
+// 快速操作卡片
+.actions-card {
   .quick-actions {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--space-3);
+  }
+  
+  .quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
     
-    .action-btn {
-      width: 100%;
-      padding: var(--spacing-md);
-      border-radius: var(--border-radius-base);
-      font-weight: 500;
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateX(4px);
+    }
+    
+    .action-icon {
+      width: 48px;
+      height: 48px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: var(--spacing-sm);
-      transition: all 0.2s ease;
-      
-      &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-      }
-      
-      .btn-icon {
-        font-size: 16px;
-      }
-    }
-  }
-  
-  .records-table {
-    border-radius: var(--border-radius-base);
-    overflow: hidden;
-    
-    :deep(.el-table__header-wrapper) {
-      background-color: var(--surface-light);
-      
-      th.el-table__cell {
-        background-color: var(--surface-light);
-        font-weight: 600;
-        color: var(--text-primary);
-        border-bottom: 1px solid var(--border-color);
-      }
-    }
-    
-    :deep(.el-table__body-wrapper) {
-      tr.el-table__row {
-        transition: background-color 0.2s ease;
-        
-        &:hover {
-          background-color: var(--surface-light);
-        }
-        
-        td.el-table__cell {
-          border-bottom: 1px solid var(--border-color-light);
-        }
-      }
-    }
-    
-    .status-tag {
-      border-radius: var(--border-radius-sm);
-      font-size: var(--font-size-xs);
-      padding: 2px 8px;
-    }
-  }
-}
-
-// 响应式设计
-@media (max-width: 768px) {
-  .el-row {
-    .el-col {
-      &:span-6 {
-        margin-bottom: var(--spacing-md);
-      }
-      
-      &:span-16,
-      &:span-8 {
-        margin-bottom: var(--spacing-md);
-      }
-    }
-  }
-  
-  .stat-card {
-    padding: var(--spacing-md);
-    
-    .stat-icon {
-      width: 48px;
-      height: 48px;
-      margin-right: var(--spacing-sm);
+      border-radius: var(--radius-md);
+      font-size: 20px;
       
       .el-icon {
-        font-size: 24px;
+        color: white;
       }
     }
     
-    .stat-info {
-      .stat-value {
-        font-size: 24px;
+    &.primary .action-icon {
+      background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+    }
+    
+    &.success .action-icon {
+      background: linear-gradient(135deg, var(--secondary-500), var(--secondary-600));
+    }
+    
+    &.info .action-icon {
+      background: linear-gradient(135deg, var(--warning-500), var(--warning-600));
+    }
+    
+    .action-info {
+      flex: 1;
+      
+      .action-name {
+        display: block;
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        margin-bottom: var(--space-1);
       }
+      
+      .action-desc {
+        display: block;
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+      }
+    }
+    
+    .action-arrow {
+      color: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+    
+    &:hover .action-arrow {
+      color: var(--text-primary);
+      transform: translateX(4px);
     }
   }
-  
-  .card {
-    .card-header,
-    .card-body {
-      padding: var(--spacing-md);
+}
+
+// 记录卡片
+.records-card {
+  .records-table {
+    .table-header {
+      display: grid;
+      grid-template-columns: 120px 1fr 140px 140px 80px 80px;
+      gap: var(--space-4);
+      padding: var(--space-3) var(--space-4);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-3);
+      
+      .th {
+        font-size: var(--text-xs);
+        font-weight: var(--font-semibold);
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
     }
     
-    .quick-actions {
-      .action-btn {
-        padding: var(--spacing-sm);
-        font-size: var(--font-size-sm);
+    .table-body {
+      .table-row {
+        display: grid;
+        grid-template-columns: 120px 1fr 140px 140px 80px 80px;
+        gap: var(--space-4);
+        padding: var(--space-4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        opacity: 0;
+        transform: translateX(-20px);
+        transition: all 0.4s ease;
         
-        .btn-icon {
-          font-size: 14px;
+        &.slide-in {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: var(--radius-md);
+        }
+        
+        &:last-child {
+          border-bottom: none;
+        }
+        
+        .td {
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          
+          &.plate .plate-number {
+            font-family: var(--font-mono);
+            font-weight: var(--font-semibold);
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.08);
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-sm);
+          }
+          
+          &.time {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+          }
+          
+          .in-progress {
+            color: var(--secondary-400);
+            font-style: italic;
+          }
+          
+          .calculating {
+            color: var(--text-muted);
+            font-style: italic;
+          }
+          
+          .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: var(--space-1) var(--space-2);
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            border-radius: var(--radius-full);
+            
+            &.completed {
+              background: rgba(16, 185, 129, 0.15);
+              color: var(--secondary-400);
+            }
+            
+            &.active {
+              background: rgba(99, 102, 241, 0.15);
+              color: var(--primary-400);
+            }
+          }
+          
+          &.fee {
+            font-family: var(--font-display);
+            font-weight: var(--font-semibold);
+            color: var(--accent-400);
+          }
         }
       }
     }
   }
 }
 
-@media (max-width: 480px) {
-  .stat-card {
+// 响应式调整
+@media (max-width: 1024px) {
+  .page-header {
     flex-direction: column;
-    text-align: center;
+    align-items: flex-start;
+    gap: var(--space-4);
     
-    .stat-icon {
-      margin-right: 0;
-      margin-bottom: var(--spacing-sm);
+    .header-actions {
+      width: 100%;
+      justify-content: flex-end;
     }
   }
   
-  .card {
-    .parking-status {
-      .status-item {
-        .status-header {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: var(--spacing-xs);
-        }
+  .chart-card .card-body {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .records-card {
+    .records-table {
+      .table-header,
+      .table-body .table-row {
+        grid-template-columns: 100px 1fr 100px 100px 70px 60px;
+        gap: var(--space-2);
       }
     }
   }
