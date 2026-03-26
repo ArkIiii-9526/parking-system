@@ -1,5 +1,5 @@
 <template>
-  <div class="role-container">
+  <div class="role-container legacy-themed-page">
     <el-card class="filter-card">
       <el-form :model="filterForm" :inline="true" class="filter-form">
         <el-form-item label="角色名称">

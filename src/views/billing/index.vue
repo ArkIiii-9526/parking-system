@@ -1,5 +1,20 @@
 <template>
-  <div class="billing-container">
+  <div class="billing-container legacy-themed-page">
+    <el-card class="daily-summary-card" v-loading="dailyLoading">
+      <template #header>
+        <span>今日收费概览（日报表）</span>
+      </template>
+      <template v-if="dailySummary">
+        <el-descriptions :column="4" border size="small">
+          <el-descriptions-item label="总金额">¥{{ Number(dailySummary.totalAmount || 0).toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="交易笔数">{{ dailySummary.totalCount ?? dailySummary.transactionCount ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="日期">{{ dailySummary.date || todayStr }}</el-descriptions-item>
+          <el-descriptions-item label="备注">{{ dailySummary.remark || '—' }}</el-descriptions-item>
+        </el-descriptions>
+      </template>
+      <el-empty v-else description="暂无日报数据" />
+    </el-card>
+
     <el-card class="filter-card">
       <el-form :model="filterForm" :inline="true" class="filter-form">
         <el-form-item label="车牌号">
@@ -197,7 +212,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getBillingRecordsPage, payBillingRecord, exportBillingRecords } from '@/api/billing'
+import { getBillingRecordsPage, payBillingRecord, exportBillingRecords, getDailyStatistics } from '@/api/billing'
 
 const loading = ref(false)
 const payLoading = ref(false)
@@ -205,6 +220,25 @@ const payDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const dateRange = ref(null)
 const totalRevenue = ref(0)
+const dailySummary = ref(null)
+const dailyLoading = ref(false)
+const todayStr = new Date().toISOString().split('T')[0]
+
+async function loadDailySummary() {
+  dailyLoading.value = true
+  try {
+    const res = await getDailyStatistics({ date: String(todayStr) })
+    if (res.code === 200 && res.data) {
+      dailySummary.value = res.data
+    } else {
+      dailySummary.value = null
+    }
+  } catch {
+    dailySummary.value = null
+  } finally {
+    dailyLoading.value = false
+  }
+}
 
 const tableData = ref([])
 const pagination = reactive({
@@ -382,11 +416,16 @@ const payFormRef = ref(null)
 
 onMounted(() => {
   loadData()
+  loadDailySummary()
 })
 </script>
 
 <style lang="scss" scoped>
 .billing-container {
+  .daily-summary-card {
+    margin-bottom: 20px;
+  }
+
   .filter-card {
     margin-bottom: 20px;
   }
@@ -399,40 +438,41 @@ onMounted(() => {
       
       .stat-info {
         font-size: 14px;
-        color: #606266;
+        color: var(--text-secondary);
         
         .total-amount {
-          color: #F56C6C;
+          color: var(--accent-400);
           font-size: 18px;
         }
       }
     }
     
     .amount {
-      color: #F56C6C;
+      color: var(--accent-400);
       font-weight: 500;
     }
   }
   
   .pay-info {
-    background: #f5f7fa;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     padding: 16px;
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     margin-bottom: 20px;
     
     .info-item {
       margin-bottom: 8px;
       
       .label {
-        color: #606266;
+        color: var(--text-secondary);
       }
       
       .value {
-        color: #303133;
+        color: var(--text-primary);
         font-weight: 500;
         
         &.amount {
-          color: #F56C6C;
+          color: var(--accent-400);
           font-size: 18px;
         }
       }

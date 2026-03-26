@@ -20,9 +20,9 @@
             <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#6366F1"/>
-                  <stop offset="50%" style="stop-color:#10B981"/>
-                  <stop offset="100%" style="stop-color:#F43F5E"/>
+                  <stop offset="0%" stop-color="var(--primary-500)"/>
+                  <stop offset="50%" stop-color="var(--secondary-500)"/>
+                  <stop offset="100%" stop-color="var(--accent-500)"/>
                 </linearGradient>
               </defs>
               <rect x="8" y="20" width="48" height="32" rx="4" stroke="url(#logoGradient)" stroke-width="3" fill="none"/>
@@ -209,11 +209,11 @@ onMounted(() => {
     position: absolute;
     inset: 0;
     background: 
-      radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(244, 63, 94, 0.08) 0%, transparent 70%),
-      radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
-      radial-gradient(ellipse at 20% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+      radial-gradient(ellipse at 20% 20%, var(--primary-surface-strong) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, var(--secondary-surface) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, var(--accent-surface) 0%, transparent 70%),
+      radial-gradient(ellipse at 80% 20%, var(--primary-surface) 0%, transparent 40%),
+      radial-gradient(ellipse at 20% 80%, var(--secondary-surface) 0%, transparent 40%);
   }
   
   .aurora-blob {
@@ -226,7 +226,7 @@ onMounted(() => {
     &.blob-1 {
       width: 600px;
       height: 600px;
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.2));
+      background: linear-gradient(135deg, var(--primary-surface-strong), var(--primary-surface));
       top: -200px;
       right: -200px;
       animation-delay: 0s;
@@ -235,7 +235,7 @@ onMounted(() => {
     &.blob-2 {
       width: 500px;
       height: 500px;
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.2));
+      background: linear-gradient(135deg, var(--secondary-surface-strong), var(--secondary-surface));
       bottom: -150px;
       left: -150px;
       animation-delay: -7s;
@@ -244,7 +244,7 @@ onMounted(() => {
     &.blob-3 {
       width: 400px;
       height: 400px;
-      background: linear-gradient(135deg, rgba(244, 63, 94, 0.25), rgba(251, 113, 133, 0.15));
+      background: linear-gradient(135deg, var(--accent-surface-strong), var(--accent-surface));
       top: 50%;
       left: 30%;
       animation-delay: -14s;
@@ -258,7 +258,7 @@ onMounted(() => {
     
     .particle {
       position: absolute;
-      background: rgba(255, 255, 255, 0.3);
+      background: var(--glass-bg-active);
       border-radius: 50%;
       bottom: -10px;
       animation: rise linear infinite;
@@ -300,9 +300,9 @@ onMounted(() => {
   border-radius: var(--radius-2xl);
   padding: var(--space-10) var(--space-8);
   box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-    0 0 100px rgba(99, 102, 241, 0.1);
+    var(--shadow-xl),
+    0 0 0 1px var(--glass-border) inset,
+    var(--shadow-glow-primary);
   opacity: 0;
   transform: translateY(30px) scale(0.98);
   transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -328,7 +328,7 @@ onMounted(() => {
       content: '';
       position: absolute;
       inset: -10px;
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(16, 185, 129, 0.2));
+      background: linear-gradient(135deg, var(--primary-surface-strong), var(--secondary-surface));
       border-radius: 50%;
       filter: blur(20px);
       animation: pulse-glow 3s ease-in-out infinite;
@@ -384,7 +384,7 @@ onMounted(() => {
     &.is-focus {
       background: var(--glass-bg-active);
       border-color: var(--primary-400);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      box-shadow: 0 0 0 3px var(--primary-surface);
     }
     
     .input-icon {
@@ -445,7 +445,7 @@ onMounted(() => {
           border-color: var(--primary-500);
           
           &::after {
-            border-color: #fff;
+            border-color: var(--text-primary);
           }
         }
       }
@@ -487,7 +487,7 @@ onMounted(() => {
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    box-shadow: var(--shadow-md), var(--shadow-glow-primary);
     
     &::before {
       content: '';
@@ -495,7 +495,7 @@ onMounted(() => {
       inset: 0;
       background: linear-gradient(105deg, 
         transparent 40%, 
-        rgba(255, 255, 255, 0.2) 50%, 
+        var(--neutral-surface-strong) 50%, 
         transparent 60%
       );
       transform: translateX(-100%);
@@ -504,7 +504,7 @@ onMounted(() => {
     
     &:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
       
       &::before {
         transform: translateX(100%);
@@ -550,7 +550,7 @@ onMounted(() => {
         .loading-spinner {
           width: 20px;
           height: 20px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
+          border: 2px solid var(--glass-border-hover);
           border-top-color: white;
           border-radius: 50%;
           animation: spin 0.8s linear infinite;

@@ -2,7 +2,7 @@
 
 ## 1. 系统概述
 
-智慧停车引导系统后端基于Spring Boot开发，采用RESTful API设计风格，提供了停车场管理、停车位管理、车位分区管理、模拟数据生成、车辆进出管理、收费记录管理、计费规则管理以及系统权限管理等功能。
+智慧停车引导系统后端基于Spring Boot开发，采用RESTful API设计风格，提供了停车场管理、停车位管理、车位分区管理、模拟数据生成、车辆进出管理、收费记录管理、计费规则管理、数据统计分析、停车引导与路径规划、预约管理、审计日志管理、缓存监控管理以及系统权限管理等功能。
 
 ## 2. 基础信息
 
@@ -1259,6 +1259,7 @@ http://服务器地址:8076/api/具体接口路径
 |---------|---------|---------|---------|
 | `/api/guidance/recommend` | GET | 获取综合停车引导推荐结果 | 无 |
 | `/api/guidance/navigation` | GET | 获取停车场内简化导航路径 | 无 |
+| `/api/guidance/route/plan` | POST | 规划停车场室内最短路径 | 无 |
 
 #### 4.9.1 获取综合停车引导推荐结果
 **请求方式**：GET
@@ -1366,6 +1367,371 @@ http://服务器地址:8076/api/具体接口路径
   }
 }
 ```
+
+#### 4.9.3 规划停车场室内最短路径
+**请求方式**：POST
+**请求路径**：`/api/guidance/route/plan`
+**权限要求**：无
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| parkingId | Long | 请求体 | 停车场ID | 是 |
+| entryId | Long | 请求体 | 入口ID | 否 |
+| startNodeId | Long | 请求体 | 起始节点ID | 否 |
+| targetSpaceId | Long | 请求体 | 目标车位ID | 否 |
+| endNodeId | Long | 请求体 | 终点节点ID | 否 |
+| preferredFloor | Integer | 请求体 | 偏好楼层 | 否 |
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "parkingId": 1,
+    "parkingName": "中心广场停车场",
+    "entryId": 1,
+    "entryName": "东入口",
+    "startNodeId": 1,
+    "endNodeId": 10,
+    "targetSpaceId": 5,
+    "targetSpaceNumber": "A-005",
+    "totalDistanceMeters": 150,
+    "estimatedMinutes": 3,
+    "pathNodeCount": 8,
+    "routeSummary": "从东入口进入，沿主通道行驶150米到达A-005",
+    "nodes": [],
+    "segments": [],
+    "steps": []
+  }
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | Object | 路径规划结果 |
+| data.parkingId | Long | 停车场ID |
+| data.parkingName | String | 停车场名称 |
+| data.entryId | Long | 入口ID |
+| data.entryName | String | 入口名称 |
+| data.startNodeId | Long | 起始节点ID |
+| data.endNodeId | Long | 终点节点ID |
+| data.targetSpaceId | Long | 目标车位ID |
+| data.targetSpaceNumber | String | 目标车位编号 |
+| data.totalDistanceMeters | Integer | 总距离（米） |
+| data.estimatedMinutes | Integer | 预计行驶时间（分钟） |
+| data.pathNodeCount | Integer | 路径节点数量 |
+| data.routeSummary | String | 路径摘要 |
+| data.nodes | Array | 路径节点列表 |
+| data.segments | Array | 路径段列表 |
+| data.steps | Array | 导航步骤列表 |
+
+### 4.10 预约管理
+
+| 接口地址 | 请求方法 | 功能描述 | 权限要求 |
+|---------|---------|---------|---------|
+| `/api/reservations` | POST | 创建预约 | 无 |
+| `/api/reservations` | GET | 分页查询预约 | reservation:view |
+| `/api/reservations/{id}` | GET | 获取预约详情 | 无 |
+| `/api/reservations/{id}/update` | PUT | 更新预约 | 无 |
+| `/api/reservations/{id}/cancel` | PUT | 取消预约 | 无 |
+| `/api/reservations/{id}` | DELETE | 删除预约 | reservation:delete |
+| `/api/reservations/user/{userId}` | GET | 获取用户的预约记录 | 无 |
+| `/api/reservations/parking/{parkingId}` | GET | 获取停车场的预约记录 | reservation:view |
+
+#### 4.10.1 创建预约
+**请求方式**：POST
+**请求路径**：`/api/reservations`
+**权限要求**：无
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| parkingId | Long | 请求体 | 停车场ID | 是 |
+| parkingSpaceId | Long | 请求体 | 停车位ID | 是 |
+| carNo | String | 请求体 | 车牌号 | 是 |
+| userId | String | 请求体 | 用户ID | 是 |
+| startTime | String | 请求体 | 预约开始时间 | 是 |
+| endTime | String | 请求体 | 预约结束时间 | 是 |
+| remark | String | 请求体 | 备注 | 否 |
+
+**响应结构**：
+```json
+{
+  "id": 1,
+  "parkingId": 1,
+  "parkingSpaceId": 5,
+  "carNo": "京A12345",
+  "userId": "user001",
+  "reserveTime": "2024-01-15T10:30:00",
+  "startTime": "2024-01-15T14:00:00",
+  "endTime": "2024-01-15T18:00:00",
+  "status": 1,
+  "remark": "预约停车"
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| id | Long | 预约ID |
+| parkingId | Long | 停车场ID |
+| parkingSpaceId | Long | 停车位ID |
+| carNo | String | 车牌号 |
+| userId | String | 用户ID |
+| reserveTime | String | 预约时间 |
+| startTime | String | 预约开始时间 |
+| endTime | String | 预约结束时间 |
+| status | Integer | 预约状态 |
+| remark | String | 备注 |
+
+#### 4.10.2 分页查询预约
+**请求方式**：GET
+**请求路径**：`/api/reservations`
+**权限要求**：reservation:view
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| page | Integer | 查询参数 | 页码（默认1） | 否 |
+| size | Integer | 查询参数 | 每页条数（默认10） | 否 |
+| parkingId | Long | 查询参数 | 停车场ID | 否 |
+| parkingSpaceId | Long | 查询参数 | 停车位ID | 否 |
+| carNo | String | 查询参数 | 车牌号（模糊查询） | 否 |
+| userId | String | 查询参数 | 用户ID | 否 |
+| status | Integer | 查询参数 | 预约状态 | 否 |
+| startDate | String | 查询参数 | 开始日期 | 否 |
+| endDate | String | 查询参数 | 结束日期 | 否 |
+
+**响应结构**：
+```json
+{
+  "records": [
+    {
+      "id": 1,
+      "parkingId": 1,
+      "parkingName": "智慧停车场",
+      "parkingSpaceId": 5,
+      "spaceNumber": "A-005",
+      "sectionArea": "A区",
+      "floor": 1,
+      "carNo": "京A12345",
+      "userId": "user001",
+      "reserveTime": "2024-01-15T10:30:00",
+      "startTime": "2024-01-15T14:00:00",
+      "endTime": "2024-01-15T18:00:00",
+      "status": 1,
+      "statusText": "待使用",
+      "remark": "预约停车",
+      "createTime": "2024-01-15T10:30:00",
+      "updateTime": "2024-01-15T10:30:00"
+    }
+  ],
+  "total": 1,
+  "size": 10,
+  "current": 1
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| records | Array | 预约记录列表 |
+| records[].id | Long | 预约ID |
+| records[].parkingId | Long | 停车场ID |
+| records[].parkingName | String | 停车场名称 |
+| records[].parkingSpaceId | Long | 停车位ID |
+| records[].spaceNumber | String | 车位编号 |
+| records[].sectionArea | String | 所在分区 |
+| records[].floor | Integer | 楼层 |
+| records[].carNo | String | 车牌号 |
+| records[].userId | String | 用户ID |
+| records[].reserveTime | String | 预约时间 |
+| records[].startTime | String | 预约开始时间 |
+| records[].endTime | String | 预约结束时间 |
+| records[].status | Integer | 预约状态 |
+| records[].statusText | String | 状态文本 |
+| records[].remark | String | 备注 |
+| records[].createTime | String | 创建时间 |
+| records[].updateTime | String | 更新时间 |
+| total | Long | 总记录数 |
+| size | Integer | 每页大小 |
+| current | Integer | 当前页码 |
+
+#### 4.10.3 获取预约详情
+**请求方式**：GET
+**请求路径**：`/api/reservations/{id}`
+**权限要求**：无
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| id | Long | 路径参数 | 预约ID | 是 |
+
+**响应结构**：
+```json
+{
+  "id": 1,
+  "parkingId": 1,
+  "parkingName": "智慧停车场",
+  "parkingSpaceId": 5,
+  "spaceNumber": "A-005",
+  "sectionArea": "A区",
+  "floor": 1,
+  "carNo": "京A12345",
+  "userId": "user001",
+  "reserveTime": "2024-01-15T10:30:00",
+  "startTime": "2024-01-15T14:00:00",
+  "endTime": "2024-01-15T18:00:00",
+  "status": 1,
+  "statusText": "待使用",
+  "remark": "预约停车",
+  "createTime": "2024-01-15T10:30:00",
+  "updateTime": "2024-01-15T10:30:00",
+  "parking": {},
+  "parkingSpace": {}
+}
+```
+
+**响应参数**：同分页查询预约中的单个对象，额外包含parking和parkingSpace详细信息
+
+#### 4.10.4 更新预约
+**请求方式**：PUT
+**请求路径**：`/api/reservations/{id}/update`
+**权限要求**：无
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| id | Long | 路径参数 | 预约ID | 是 |
+| startTime | String | 请求体 | 预约开始时间 | 否 |
+| endTime | String | 请求体 | 预约结束时间 | 否 |
+| remark | String | 请求体 | 备注 | 否 |
+
+**响应结构**：
+```json
+true
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| 响应体 | Boolean | 操作是否成功 |
+
+#### 4.10.5 取消预约
+**请求方式**：PUT
+**请求路径**：`/api/reservations/{id}/cancel`
+**权限要求**：无
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| id | Long | 路径参数 | 预约ID | 是 |
+
+**响应结构**：
+```json
+true
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| 响应体 | Boolean | 操作是否成功 |
+
+#### 4.10.6 删除预约
+**请求方式**：DELETE
+**请求路径**：`/api/reservations/{id}`
+**权限要求**：reservation:delete
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| id | Long | 路径参数 | 预约ID | 是 |
+
+**响应结构**：
+```json
+true
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| 响应体 | Boolean | 操作是否成功 |
+
+#### 4.10.7 获取用户的预约记录
+**请求方式**：GET
+**请求路径**：`/api/reservations/user/{userId}`
+**权限要求**：无
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| userId | String | 路径参数 | 用户ID | 是 |
+
+**响应结构**：
+```json
+[
+  {
+    "id": 1,
+    "parkingId": 1,
+    "parkingName": "智慧停车场",
+    "parkingSpaceId": 5,
+    "spaceNumber": "A-005",
+    "sectionArea": "A区",
+    "floor": 1,
+    "carNo": "京A12345",
+    "userId": "user001",
+    "reserveTime": "2024-01-15T10:30:00",
+    "startTime": "2024-01-15T14:00:00",
+    "endTime": "2024-01-15T18:00:00",
+    "status": 1,
+    "statusText": "待使用",
+    "remark": "预约停车",
+    "createTime": "2024-01-15T10:30:00",
+    "updateTime": "2024-01-15T10:30:00"
+  }
+]
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| 响应体 | Array | 预约记录列表，同分页查询预约中的records项 |
+
+#### 4.10.8 获取停车场的预约记录
+**请求方式**：GET
+**请求路径**：`/api/reservations/parking/{parkingId}`
+**权限要求**：reservation:view
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| parkingId | Long | 路径参数 | 停车场ID | 是 |
+
+**响应结构**：
+```json
+[
+  {
+    "id": 1,
+    "parkingId": 1,
+    "parkingName": "智慧停车场",
+    "parkingSpaceId": 5,
+    "spaceNumber": "A-005",
+    "sectionArea": "A区",
+    "floor": 1,
+    "carNo": "京A12345",
+    "userId": "user001",
+    "reserveTime": "2024-01-15T10:30:00",
+    "startTime": "2024-01-15T14:00:00",
+    "endTime": "2024-01-15T18:00:00",
+    "status": 1,
+    "statusText": "待使用",
+    "remark": "预约停车",
+    "createTime": "2024-01-15T10:30:00",
+    "updateTime": "2024-01-15T10:30:00"
+  }
+]
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| 响应体 | Array | 预约记录列表，同分页查询预约中的records项 |
 
 ## 5. 系统管理接口
 
@@ -2517,6 +2883,249 @@ true
 | data.success | Boolean | 是否成功 |
 | data.message | String | 结果消息 |
 
+### 5.5 审计日志管理
+
+| 接口地址 | 请求方法 | 功能描述 | 权限要求 |
+|---------|---------|---------|---------|
+| `/api/audit-log/list` | GET | 查询审计日志 | sys:audit:query |
+| `/api/audit-log/detail` | GET | 获取审计日志详情 | sys:audit:detail |
+| `/api/audit-log/clear` | GET | 清空审计日志 | sys:audit:clear |
+
+#### 5.5.1 查询审计日志
+**请求方式**：GET
+**请求路径**：`/api/audit-log/list`
+**权限要求**：sys:audit:query
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| username | String | 查询参数 | 操作用户名 | 否 |
+| businessType | String | 查询参数 | 业务类型 | 否 |
+| startTime | String | 查询参数 | 开始时间 | 否 |
+| endTime | String | 查询参数 | 结束时间 | 否 |
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "logId": 1,
+      "userId": "1",
+      "username": "admin",
+      "operation": "用户登录",
+      "businessType": "LOGIN",
+      "method": "POST",
+      "requestParams": "{\"username\":\"admin\"}",
+      "responseParams": "{\"code\":200}",
+      "ip": "192.168.1.1",
+      "userAgent": "Mozilla/5.0...",
+      "status": 1,
+      "errorMsg": null,
+      "createTime": "2024-01-15T10:30:00",
+      "module": "认证管理"
+    }
+  ]
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | Array | 审计日志列表 |
+| data[].logId | Long | 日志ID |
+| data[].userId | String | 用户ID |
+| data[].username | String | 用户名 |
+| data[].operation | String | 操作描述 |
+| data[].businessType | String | 业务类型 |
+| data[].method | String | 请求方法 |
+| data[].requestParams | String | 请求参数 |
+| data[].responseParams | String | 响应参数 |
+| data[].ip | String | 请求IP |
+| data[].userAgent | String | 用户代理 |
+| data[].status | Integer | 状态：1成功，0失败 |
+| data[].errorMsg | String | 错误信息 |
+| data[].createTime | String | 创建时间 |
+| data[].module | String | 模块名称 |
+
+#### 5.5.2 获取审计日志详情
+**请求方式**：GET
+**请求路径**：`/api/audit-log/detail`
+**权限要求**：sys:audit:detail
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| logId | Long | 查询参数 | 日志ID | 是 |
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "logId": 1,
+    "userId": "1",
+    "username": "admin",
+    "operation": "用户登录",
+    "businessType": "LOGIN",
+    "method": "POST",
+    "requestParams": "{\"username\":\"admin\"}",
+    "responseParams": "{\"code\":200}",
+    "ip": "192.168.1.1",
+    "userAgent": "Mozilla/5.0...",
+    "status": 1,
+    "errorMsg": null,
+    "createTime": "2024-01-15T10:30:00",
+    "module": "认证管理"
+  }
+}
+```
+
+**响应参数**：同查询审计日志中的单个对象
+
+#### 5.5.3 清空审计日志
+**请求方式**：GET
+**请求路径**：`/api/audit-log/clear`
+**权限要求**：sys:audit:clear
+**请求参数**：无
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "审计日志清空成功",
+  "data": null
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | null | 响应数据 |
+
+### 5.6 缓存监控管理
+
+| 接口地址 | 请求方法 | 功能描述 | 权限要求 |
+|---------|---------|---------|---------|
+| `/api/cache/metrics` | GET | 获取缓存监控指标 | sys:cache:metrics |
+| `/api/cache/reset` | GET | 重置缓存监控指标 | sys:cache:reset |
+| `/api/cache/clear` | GET | 清除指定模式的缓存 | sys:cache:clear |
+| `/api/cache/clearAll` | GET | 清除所有缓存 | sys:cache:clearAll |
+
+#### 5.6.1 获取缓存监控指标
+**请求方式**：GET
+**请求路径**：`/api/cache/metrics`
+**权限要求**：sys:cache:metrics
+**请求参数**：无
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "hitCount": 1500,
+    "missCount": 200,
+    "hitRate": 0.88,
+    "totalRequests": 1700,
+    "cacheSize": 256,
+    "evictionCount": 50,
+    "averageLoadPenalty": 10.5,
+    "loadSuccessCount": 200,
+    "loadExceptionCount": 0
+  }
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | Object | 缓存监控指标 |
+| data.hitCount | Long | 缓存命中次数 |
+| data.missCount | Long | 缓存未命中次数 |
+| data.hitRate | Double | 缓存命中率 |
+| data.totalRequests | Long | 总请求次数 |
+| data.cacheSize | Integer | 缓存大小 |
+| data.evictionCount | Long | 缓存驱逐次数 |
+| data.averageLoadPenalty | Double | 平均加载延迟（毫秒） |
+| data.loadSuccessCount | Long | 加载成功次数 |
+| data.loadExceptionCount | Long | 加载异常次数 |
+
+#### 5.6.2 重置缓存监控指标
+**请求方式**：GET
+**请求路径**：`/api/cache/reset`
+**权限要求**：sys:cache:reset
+**请求参数**：无
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "缓存监控指标已重置",
+  "data": null
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | null | 响应数据 |
+
+#### 5.6.3 清除指定模式的缓存
+**请求方式**：GET
+**请求路径**：`/api/cache/clear`
+**权限要求**：sys:cache:clear
+**请求参数**：
+| 参数名 | 类型 | 位置 | 描述 | 必填 |
+|-------|------|------|------|------|
+| pattern | String | 查询参数 | 缓存键模式（支持通配符） | 是 |
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "缓存已清除",
+  "data": null
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | null | 响应数据 |
+
+#### 5.6.4 清除所有缓存
+**请求方式**：GET
+**请求路径**：`/api/cache/clearAll`
+**权限要求**：sys:cache:clearAll
+**请求参数**：无
+
+**响应结构**：
+```json
+{
+  "code": 200,
+  "message": "所有缓存已清除",
+  "data": null
+}
+```
+
+**响应参数**：
+| 参数名 | 类型 | 描述 |
+|-------|------|------|
+| code | Integer | 状态码 |
+| message | String | 响应消息 |
+| data | null | 响应数据 |
+
 ## 6. 数据字典
 
 ### 6.1 停车位状态
@@ -2541,6 +3150,21 @@ true
 | 2 | 已支付 |
 | 3 | 已取消 |
 
+### 6.4 预约状态
+| 状态值 | 状态描述 |
+|-------|---------|
+| 0 | 待使用 |
+| 1 | 使用中 |
+| 2 | 已完成 |
+| 3 | 已取消 |
+| 4 | 已过期 |
+
+### 6.5 审计日志状态
+| 状态值 | 状态描述 |
+|-------|---------|
+| 0 | 失败 |
+| 1 | 成功 |
+
 ## 7. 注意事项
 
 1. 所有接口请求参数需严格按照文档要求传递
@@ -2553,6 +3177,7 @@ true
 
 | 版本号 | 更新日期 | 更新内容 |
 |-------|---------|---------|
+| 1.2.0 | 2026-03-25 | 新增预约管理模块（8个接口）、停车引导路径规划接口、审计日志管理模块（3个接口）、缓存监控管理模块（4个接口），完善数据字典，确保所有后端接口录入完毕 |
 | 1.1.0 | 2026-03-15 | 新增系统配置管理模块，包含配置CRUD、缓存管理、多类型配置值获取等12个API接口，支持STRING/INT/BOOLEAN/JSON四种配置类型 |
 | 1.0.9 | 2026-03-15 | 新增车位分区管理API和模拟数据生成API，完善停车场管理模块功能 |
 | 1.0.8 | 2026-03-15 | 新增数据统计分析导出功能，包含周转率、趋势、收入、利用率、运营汇总导出及综合报表导出等8个API接口，支持Excel多Sheet导出 |

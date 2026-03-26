@@ -36,37 +36,37 @@ const routes = [
         path: 'parking',
         name: 'Parking',
         component: () => import('@/views/parking/index.vue'),
-        meta: { title: '停车场管理', icon: 'Van' }
+        meta: { title: '停车场管理', icon: 'Van', permission: 'parking:list' }
       },
       {
         path: 'parking-space',
         name: 'ParkingSpace',
         component: () => import('@/views/parking-space/index.vue'),
-        meta: { title: '停车位管理', icon: 'Grid' }
+        meta: { title: '停车位管理', icon: 'Grid', permission: 'space:view' }
       },
       {
           path: 'vehicle',
           name: 'Vehicle',
           component: () => import('@/views/vehicle/index.vue'),
-          meta: { title: '车辆进出管理', icon: 'Truck' }
+          meta: { title: '车辆进出管理', icon: 'Truck', permission: 'billing:view' }
         },
       {
         path: 'billing',
         name: 'Billing',
         component: () => import('@/views/billing/index.vue'),
-        meta: { title: '收费记录管理', icon: 'Money' }
+        meta: { title: '收费记录管理', icon: 'Money', permission: 'billing:view' }
       },
       {
         path: 'billing-rule',
         name: 'BillingRule',
         component: () => import('@/views/billing-rule/index.vue'),
-        meta: { title: '计费规则管理', icon: 'Setting' }
+        meta: { title: '计费规则管理', icon: 'Setting', permission: 'billing:rule:view' }
       },
       {
         path: 'parking-section',
         name: 'ParkingSection',
         component: () => import('@/views/parking-section/index.vue'),
-        meta: { title: '停车场分区', icon: 'MapLocation' }
+        meta: { title: '停车场分区', icon: 'MapLocation', permission: 'section:list' }
       },
       {
         path: 'analytics',
@@ -78,31 +78,31 @@ const routes = [
             path: 'summary',
             name: 'AnalyticsSummary',
             component: () => import('@/views/analytics/summary.vue'),
-            meta: { title: '运营汇总', icon: 'DataLine' }
+            meta: { title: '运营汇总', icon: 'DataLine', permission: 'analytics:summary:view' }
           },
           {
             path: 'utilization',
             name: 'AnalyticsUtilization',
             component: () => import('@/views/analytics/utilization.vue'),
-            meta: { title: '利用率分析', icon: 'PieChart' }
+            meta: { title: '利用率分析', icon: 'PieChart', permission: 'analytics:utilization:view' }
           },
           {
             path: 'income',
             name: 'AnalyticsIncome',
             component: () => import('@/views/analytics/income.vue'),
-            meta: { title: '收入分析', icon: 'Money' }
+            meta: { title: '收入分析', icon: 'Money', permission: 'analytics:income:view' }
           },
           {
             path: 'turnover',
             name: 'AnalyticsTurnover',
             component: () => import('@/views/analytics/turnover.vue'),
-            meta: { title: '周转率分析', icon: 'Refresh' }
+            meta: { title: '周转率分析', icon: 'Refresh', permission: 'analytics:turnover:view' }
           },
           {
             path: 'trend',
             name: 'AnalyticsTrend',
             component: () => import('@/views/analytics/trend.vue'),
-            meta: { title: '趋势分析', icon: 'TrendCharts' }
+            meta: { title: '趋势分析', icon: 'TrendCharts', permission: 'analytics:trend:view' }
           }
         ]
       },
@@ -110,7 +110,19 @@ const routes = [
         path: 'simulation',
         name: 'Simulation',
         component: () => import('@/views/simulation/index.vue'),
-        meta: { title: '模拟数据', icon: 'Cpu' }
+        meta: { title: '模拟数据', icon: 'Cpu', permission: 'simulation:generate' }
+      },
+      {
+        path: 'guidance',
+        name: 'Guidance',
+        component: () => import('@/views/guidance/index.vue'),
+        meta: { title: '停车引导', icon: 'Guide' }
+      },
+      {
+        path: 'reservation',
+        name: 'Reservation',
+        component: () => import('@/views/reservation/index.vue'),
+        meta: { title: '预约管理', icon: 'Calendar', permission: 'reservation:view' }
       },
       {
         path: 'system',
@@ -141,6 +153,18 @@ const routes = [
             name: 'SystemConfig',
             component: () => import('@/views/system/config-manage.vue'),
             meta: { title: '系统配置', icon: 'Tools' }
+          },
+          {
+            path: 'audit-log',
+            name: 'SystemAuditLog',
+            component: () => import('@/views/system/audit-log.vue'),
+            meta: { title: '审计日志', icon: 'Document', permission: 'sys:audit:query' }
+          },
+          {
+            path: 'cache',
+            name: 'SystemCache',
+            component: () => import('@/views/system/cache.vue'),
+            meta: { title: '缓存监控', icon: 'Monitor', permission: 'sys:cache:metrics' }
           }
         ]
       }

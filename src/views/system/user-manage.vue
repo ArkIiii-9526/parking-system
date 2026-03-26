@@ -1,5 +1,5 @@
 <template>
-  <div class="user-container">
+  <div class="user-container legacy-themed-page">
     <el-card class="filter-card">
       <el-form :model="filterForm" :inline="true" class="filter-form">
         <el-form-item label="用户名">

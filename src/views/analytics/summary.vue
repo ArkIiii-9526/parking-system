@@ -12,6 +12,15 @@
         <p class="page-subtitle">查看系统整体运营数据指标</p>
       </div>
       <div class="header-actions">
+        <span v-if="exportFormatOptions.length > 1" class="format-hint">
+          <span class="format-label">导出格式</span>
+          <el-select v-model="exportFormat" size="small" style="width: 100px">
+            <el-option v-for="f in exportFormatOptions" :key="f" :label="f" :value="f" />
+          </el-select>
+        </span>
+        <el-tooltip v-else-if="exportFormatOptions.length" :content="`支持格式: ${exportFormatOptions.join(', ')}`" placement="top">
+          <span class="format-badge">{{ exportFormatOptions[0] }}</span>
+        </el-tooltip>
         <button class="export-btn" v-permission="'analytics:summary:export'" @click="handleExport">
           <el-icon><Download /></el-icon>
           <span>导出报表</span>
@@ -187,12 +196,20 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { getSummaryAnalysis, exportSummary } from '@/api/analytics'
 import { getParkingPage } from '@/api/parking'
+import { createAreaGradient, getAnalyticsTheme, observeThemeChange } from '@/utils/analyticsTheme'
+import {
+  loadAnalyticsExportFormats,
+  appendFormatToPayload,
+  exportBlobMimeType,
+  exportFileExtension
+} from '@/utils/analyticsExportFormats'
 
 const loading = ref(false)
 const incomeChartRef = ref(null)
 const vehicleChartRef = ref(null)
 let incomeChart = null
 let vehicleChart = null
+let stopThemeObserver = null
 
 const summaryData = reactive({
   totalParkings: 0,
@@ -208,6 +225,9 @@ const summaryData = reactive({
 
 const parkingStats = ref([])
 const parkingList = ref([])
+
+const exportFormatOptions = ref([])
+const exportFormat = ref('excel')
 
 const filterForm = reactive({
   parkingId: null,
@@ -309,16 +329,22 @@ function handleReset() {
 
 async function handleExport() {
   try {
-    const data = {
+    let data = {
       startDate: filterForm.startDate,
       endDate: filterForm.endDate,
       parkingId: filterForm.parkingId
     }
+    data = appendFormatToPayload(data, exportFormat.value)
     const res = await exportSummary(data)
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const raw = res?.data ?? res
+    const blob =
+      raw instanceof Blob
+        ? raw
+        : new Blob([raw], { type: exportBlobMimeType(exportFormat.value) })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `运营汇总_${new Date().toISOString().split('T')[0]}.xlsx`
+    const ext = exportFileExtension(exportFormat.value)
+    link.download = `运营汇总_${new Date().toISOString().split('T')[0]}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {
@@ -350,6 +376,7 @@ function handleResize() {
 
 function updateCharts() {
   if (!incomeChart || !vehicleChart) return
+  const theme = getAnalyticsTheme()
 
   // 从API返回的数据中获取图表数据
   const dates = summaryData.incomeTrend?.map(item => item.date) || []
@@ -384,14 +411,14 @@ function updateCharts() {
     xAxis: {
       type: 'category',
       data: dates,
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     yAxis: {
       type: 'value',
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary },
+      splitLine: { lineStyle: { color: theme.splitLine } }
     },
     series: [{
       name: '收入',
@@ -399,13 +426,10 @@ function updateCharts() {
       smooth: true,
       data: incomeData,
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(99, 102, 241, 0.5)' },
-          { offset: 1, color: 'rgba(99, 102, 241, 0.05)' }
-        ])
+        color: createAreaGradient(theme.primary, 0.45, 0.05)
       },
-      lineStyle: { color: '#6366f1', width: 3 },
-      itemStyle: { color: '#6366f1' }
+      lineStyle: { color: theme.primary, width: 3 },
+      itemStyle: { color: theme.primary }
     }]
   })
 
@@ -416,7 +440,7 @@ function updateCharts() {
     },
     legend: {
       data: ['入场', '出场'],
-      textStyle: { color: 'rgba(255,255,255,0.6)' }
+      textStyle: { color: theme.textSecondary }
     },
     grid: {
       left: '3%',
@@ -427,41 +451,46 @@ function updateCharts() {
     xAxis: {
       type: 'category',
       data: dates,
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     yAxis: {
       type: 'value',
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary },
+      splitLine: { lineStyle: { color: theme.splitLine } }
     },
     series: [
       {
         name: '入场',
         type: 'bar',
         data: entryData,
-        itemStyle: { color: '#10b981' }
+        itemStyle: { color: theme.secondary }
       },
       {
         name: '出场',
         type: 'bar',
         data: exitData,
-        itemStyle: { color: '#f59e0b' }
+        itemStyle: { color: theme.warning }
       }
     ]
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   setDefaultDateRange()
+  const fmts = await loadAnalyticsExportFormats()
+  exportFormatOptions.value = fmts
+  exportFormat.value = fmts[0] || 'excel'
   loadParkingList()
   loadData()
   initCharts()
+  stopThemeObserver = observeThemeChange(updateCharts)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  stopThemeObserver?.()
   incomeChart?.dispose()
   vehicleChart?.dispose()
 })
@@ -520,6 +549,25 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .format-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    .format-label {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+  }
+
+  .format-badge {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    background: var(--glass-bg);
   }
 
   .export-btn {
@@ -535,11 +583,11 @@ onUnmounted(() => {
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    box-shadow: var(--shadow-glow-secondary);
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-secondary);
     }
 
     .el-icon {
@@ -550,9 +598,9 @@ onUnmounted(() => {
 
 // 筛选卡片
 .filter-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   margin-bottom: var(--space-6);
@@ -608,15 +656,15 @@ onUnmounted(() => {
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.3s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--glass-bg-hover);
+      border-color: var(--glass-border-hover);
       color: var(--text-primary);
     }
 
@@ -636,9 +684,9 @@ onUnmounted(() => {
 
 .stat-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   overflow: hidden;
@@ -646,8 +694,8 @@ onUnmounted(() => {
 
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-xl);
 
     .card-glow {
       opacity: 0.1;
@@ -713,7 +761,7 @@ onUnmounted(() => {
     gap: var(--space-2);
     margin-top: var(--space-4);
     padding-top: var(--space-4);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-subtle);
     position: relative;
     z-index: 1;
 
@@ -750,7 +798,7 @@ onUnmounted(() => {
 
   &.info .card-icon {
     background: rgba(59, 130, 246, 0.15);
-    .el-icon { color: #60a5fa; }
+    .el-icon { color: var(--primary-400); }
   }
 
   &.success .card-icon {
@@ -776,8 +824,8 @@ onUnmounted(() => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-6);
 
@@ -805,9 +853,9 @@ onUnmounted(() => {
 }
 
 .chart-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
 
@@ -836,9 +884,9 @@ onUnmounted(() => {
 
 // 表格卡片
 .table-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   overflow: hidden;
@@ -868,10 +916,10 @@ onUnmounted(() => {
 
   :deep(.el-table__header) {
     th {
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--glass-bg);
       color: var(--text-secondary);
       font-weight: var(--font-semibold);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid var(--border-subtle);
     }
   }
 
@@ -879,12 +927,12 @@ onUnmounted(() => {
     background: transparent;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.03);
+      background: var(--glass-bg-hover);
     }
 
     td {
       color: var(--text-primary);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid var(--border-subtle);
     }
   }
 }
@@ -922,7 +970,7 @@ onUnmounted(() => {
   .bar-bg {
     flex: 1;
     height: 8px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg-hover);
     border-radius: var(--radius-full);
     overflow: hidden;
 

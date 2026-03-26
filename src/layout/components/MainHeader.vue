@@ -131,7 +131,7 @@ const userStore = useUserStore()
 const searchExpanded = ref(false)
 const searchQuery = ref('')
 const isFullscreen = ref(false)
-const isDark = ref(true)
+const isDark = ref(localStorage.getItem('parking_theme') !== 'light')
 const unreadCount = ref(3)
 
 const notifications = ref([
@@ -162,6 +162,7 @@ function toggleFullscreen() {
 
 function toggleTheme() {
   isDark.value = !isDark.value
+  localStorage.setItem('parking_theme', isDark.value ? 'dark' : 'light')
   if (isDark.value) {
     document.documentElement.classList.add('dark')
   } else {
@@ -197,6 +198,8 @@ onMounted(() => {
   document.addEventListener('fullscreenchange', updateFullscreenState)
   if (isDark.value) {
     document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
   }
 })
 

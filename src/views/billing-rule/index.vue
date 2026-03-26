@@ -1,5 +1,5 @@
 <template>
-  <div class="billing-rule-container">
+  <div class="billing-rule-container legacy-themed-page">
     <el-card class="filter-card">
       <el-form :model="filterForm" :inline="true" class="filter-form">
         <el-form-item label="规则名称">
@@ -28,10 +28,13 @@
       <template #header>
         <div class="card-header">
           <span>计费规则列表</span>
-          <el-button v-permission="'billing:rule:add'" type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>
-            新增规则
-          </el-button>
+          <div class="card-header-actions">
+            <el-button v-permission="'billing:rule:calculate'" @click="openTrialDialog">费用试算</el-button>
+            <el-button v-permission="'billing:rule:add'" type="primary" @click="handleAdd">
+              <el-icon><Plus /></el-icon>
+              新增规则
+            </el-button>
+          </div>
         </div>
       </template>
       
@@ -60,7 +63,8 @@
               :model-value="row.status"
               :active-value="1"
               :inactive-value="0"
-              @change="handleStatusChange(row)"
+              :disabled="!canToggleRuleSwitch"
+              @change="(val) => handleStatusChange(row, val)"
             />
           </template>
         </el-table-column>
@@ -134,19 +138,103 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="trialVisible" title="费用试算" width="520px" destroy-on-close>
+      <el-form label-width="100px">
+        <el-form-item label="规则" required>
+          <el-select v-model="trialForm.ruleId" filterable placeholder="选择规则" style="width: 100%">
+            <el-option v-for="r in tableData" :key="r.id" :label="r.name" :value="r.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="入场时间" required>
+          <el-date-picker v-model="trialForm.entryTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="离场时间" required>
+          <el-date-picker v-model="trialForm.exitTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
+        </el-form-item>
+      </el-form>
+      <div v-if="trialResult" class="trial-result">
+        <p>总时长：{{ trialResult.totalTime }} 分钟</p>
+        <p>总费用：<strong>¥{{ Number(trialResult.totalFee || 0).toFixed(2) }}</strong></p>
+        <el-table v-if="trialResult.details?.length" :data="trialResult.details" size="small" border>
+          <el-table-column prop="period" label="时段" />
+          <el-table-column prop="time" label="时长(分)" width="90" />
+          <el-table-column prop="fee" label="费用" width="90">
+            <template #default="{ row }">¥{{ Number(row.fee).toFixed(2) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="trialVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="trialLoading" @click="runTrial">试算</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getBillingRulePage, createBillingRule, updateBillingRule, deleteBillingRule, enableBillingRule, disableBillingRule } from '@/api/billingRule'
+import {
+  getBillingRulePage,
+  createBillingRule,
+  updateBillingRule,
+  deleteBillingRule,
+  enableBillingRule,
+  disableBillingRule,
+  calculateBillingFee
+} from '@/api/billingRule'
+import { hasPermission } from '@/utils/hasPermission'
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const dialogType = ref('add')
 const formRef = ref(null)
+
+const canToggleRuleSwitch = computed(
+  () => hasPermission('billing:rule:enable') || hasPermission('billing:rule:disable')
+)
+
+const trialVisible = ref(false)
+const trialLoading = ref(false)
+const trialForm = reactive({
+  ruleId: undefined,
+  entryTime: '',
+  exitTime: ''
+})
+const trialResult = ref(null)
+
+function openTrialDialog() {
+  trialForm.ruleId = tableData.value[0]?.id
+  trialForm.entryTime = ''
+  trialForm.exitTime = ''
+  trialResult.value = null
+  trialVisible.value = true
+}
+
+async function runTrial() {
+  if (!trialForm.ruleId || !trialForm.entryTime || !trialForm.exitTime) {
+    ElMessage.warning('请完整填写规则与时间')
+    return
+  }
+  trialLoading.value = true
+  trialResult.value = null
+  try {
+    const res = await calculateBillingFee({
+      ruleId: trialForm.ruleId,
+      entryTime: trialForm.entryTime,
+      exitTime: trialForm.exitTime
+    })
+    if (res.code === 200) {
+      trialResult.value = res.data
+    }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    trialLoading.value = false
+  }
+}
 
 const tableData = ref([])
 const pagination = reactive({
@@ -283,9 +371,14 @@ function handleDelete(row) {
   })
 }
 
-async function handleStatusChange(row) {
+async function handleStatusChange(row, newVal) {
   try {
-    if (row.status === 1) {
+    if (newVal === 0) {
+      if (!hasPermission('billing:rule:disable')) {
+        ElMessage.warning('无禁用权限')
+        loadData()
+        return
+      }
       await ElMessageBox.confirm('确定要禁用该规则吗？', '提示', { type: 'warning' })
       const res = await disableBillingRule(row.id)
       if (res.code === 200) {
@@ -293,6 +386,11 @@ async function handleStatusChange(row) {
         loadData()
       }
     } else {
+      if (!hasPermission('billing:rule:enable')) {
+        ElMessage.warning('无启用权限')
+        loadData()
+        return
+      }
       const res = await enableBillingRule(row.id)
       if (res.code === 200) {
         ElMessage.success('已启用')
@@ -303,6 +401,7 @@ async function handleStatusChange(row) {
     if (error !== 'cancel') {
       ElMessage.error('操作失败')
     }
+    loadData()
   }
 }
 
@@ -360,8 +459,13 @@ onMounted(() => {
       justify-content: space-between;
       align-items: center;
     }
+    .card-header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
   }
-  
+
   .pagination-container {
     margin-top: 20px;
     display: flex;
@@ -371,7 +475,23 @@ onMounted(() => {
   .form-tip {
     margin-left: 8px;
     font-size: 12px;
-    color: #909399;
+    color: var(--text-muted);
+  }
+
+  .trial-result {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+
+    p {
+      color: var(--text-secondary);
+
+      strong {
+        color: var(--accent-400);
+        font-size: 18px;
+      }
+    }
   }
 }
 </style>

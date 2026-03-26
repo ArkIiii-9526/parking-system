@@ -53,6 +53,24 @@
       </div>
     </div>
 
+    <!-- 附近停车场 -->
+    <el-collapse class="nearby-collapse">
+      <el-collapse-item title="附近停车场（按经纬度查询）" name="nearby">
+        <div class="nearby-row">
+          <el-input v-model="nearbyForm.longitude" placeholder="经度" style="width: 140px" clearable />
+          <el-input v-model="nearbyForm.latitude" placeholder="纬度" style="width: 140px" clearable />
+          <el-button type="primary" :loading="nearbyLoading" @click="fetchNearby">查询</el-button>
+        </div>
+        <el-table v-if="nearbyList.length" :data="nearbyList" border size="small" class="nearby-table">
+          <el-table-column prop="name" label="名称" min-width="140" />
+          <el-table-column prop="address" label="地址" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="availableSpaces" label="空位" width="80" />
+          <el-table-column prop="totalSpaces" label="总车位" width="80" />
+        </el-table>
+        <el-empty v-else-if="nearbySearched" description="无结果" />
+      </el-collapse-item>
+    </el-collapse>
+
     <!-- 数据卡片网格 -->
     <div class="parking-grid">
       <div
@@ -278,6 +296,14 @@
             </div>
           </div>
         </div>
+
+        <div v-if="parkingApiStats && Object.keys(parkingApiStats).length" class="detail-section">
+          <h4>车位统计（接口）</h4>
+          <div class="detail-item" v-for="(val, key) in parkingApiStats" :key="key">
+            <span class="item-label">{{ key }}</span>
+            <span class="item-value">{{ typeof val === 'object' ? JSON.stringify(val) : val }}</span>
+          </div>
+        </div>
       </div>
     </el-drawer>
   </div>
@@ -287,7 +313,15 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getParkingPage, createParking, updateParking, deleteParking, getParkingDetail } from '@/api/parking'
+import {
+  getParkingPage,
+  createParking,
+  updateParking,
+  deleteParking,
+  getParkingDetail,
+  getNearbyParkings,
+  getParkingStatistics
+} from '@/api/parking'
 
 const router = useRouter()
 const loading = ref(false)
@@ -298,6 +332,12 @@ const dialogType = ref('add')
 const formRef = ref(null)
 const animated = ref(false)
 const currentParking = ref(null)
+const parkingApiStats = ref(null)
+
+const nearbyForm = reactive({ longitude: '', latitude: '' })
+const nearbyLoading = ref(false)
+const nearbyList = ref([])
+const nearbySearched = ref(false)
 
 const tableData = ref([])
 const filterForm = reactive({
@@ -354,6 +394,29 @@ function formatCoordinate(lng, lat) {
 
 function viewSpaces(item) {
   router.push(`/parking-space?parkingId=${item.id}`)
+}
+
+async function fetchNearby() {
+  if (!nearbyForm.longitude || !nearbyForm.latitude) {
+    ElMessage.warning('请填写经度、纬度')
+    return
+  }
+  nearbyLoading.value = true
+  nearbySearched.value = true
+  try {
+    const res = await getNearbyParkings({
+      longitude: nearbyForm.longitude,
+      latitude: nearbyForm.latitude
+    })
+    if (res.code === 200) {
+      nearbyList.value = Array.isArray(res.data) ? res.data : res.data?.records || []
+    }
+  } catch (e) {
+    console.error(e)
+    nearbyList.value = []
+  } finally {
+    nearbyLoading.value = false
+  }
 }
 
 async function loadData() {
@@ -417,11 +480,20 @@ function handleAdd() {
 }
 
 async function handleDetail(row) {
+  parkingApiStats.value = null
   try {
     const res = await getParkingDetail(row.id)
     if (res.code === 200) {
       currentParking.value = res.data
       detailDrawerVisible.value = true
+    }
+    try {
+      const statRes = await getParkingStatistics(row.id)
+      if (statRes.code === 200 && statRes.data && typeof statRes.data === 'object') {
+        parkingApiStats.value = statRes.data
+      }
+    } catch (_) {
+      /* 统计接口可选 */
     }
   } catch (_) {
     ElMessage.error('获取详情失败')
@@ -519,6 +591,24 @@ onMounted(() => {
   margin: 0 auto;
 }
 
+.nearby-collapse {
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.nearby-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.nearby-table {
+  margin-top: var(--space-2);
+}
+
 // 页面标题
 .page-header {
   display: flex;
@@ -578,7 +668,7 @@ onMounted(() => {
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
     }
 
     .el-icon {
@@ -589,9 +679,9 @@ onMounted(() => {
 
 // 筛选卡片
 .filter-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   margin-bottom: var(--space-6);
@@ -624,15 +714,15 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-4);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     transition: all 0.3s ease;
     flex: 1;
 
     &:hover, &:focus-within {
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--glass-border-hover);
+      background: var(--glass-bg-hover);
     }
 
     .filter-icon {
@@ -674,15 +764,15 @@ onMounted(() => {
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.3s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--glass-bg-active);
+      border-color: var(--glass-border-hover);
       color: var(--text-primary);
     }
 
@@ -694,7 +784,7 @@ onMounted(() => {
 
       &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
       }
     }
 
@@ -714,9 +804,9 @@ onMounted(() => {
 
 .parking-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   overflow: hidden;
@@ -731,8 +821,8 @@ onMounted(() => {
 
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-xl);
 
     .card-glow {
       opacity: 0.1;
@@ -769,7 +859,7 @@ onMounted(() => {
       border-radius: var(--radius-full);
 
       &.active {
-        background: rgba(16, 185, 129, 0.15);
+        background: var(--secondary-surface);
         color: var(--secondary-400);
 
         .status-dot {
@@ -779,7 +869,7 @@ onMounted(() => {
       }
 
       &.inactive {
-        background: rgba(148, 163, 184, 0.15);
+        background: var(--neutral-surface);
         color: var(--text-muted);
 
         .status-dot {
@@ -805,22 +895,22 @@ onMounted(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         border-radius: var(--radius-md);
         color: var(--text-tertiary);
         cursor: pointer;
         transition: all 0.3s ease;
 
         &:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.2);
+          background: var(--glass-bg-active);
+          border-color: var(--glass-border-hover);
           color: var(--text-primary);
         }
 
         &.danger:hover {
-          background: rgba(244, 63, 94, 0.1);
-          border-color: rgba(244, 63, 94, 0.3);
+          background: var(--accent-surface);
+          border-color: color-mix(in srgb, var(--accent-500) 35%, transparent);
           color: var(--accent-400);
         }
 
@@ -898,13 +988,13 @@ onMounted(() => {
       .stat-divider {
         width: 1px;
         height: 40px;
-        background: rgba(255, 255, 255, 0.1);
+        background: var(--glass-bg-active);
       }
     }
 
     .usage-bar {
       height: 6px;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg-active);
       border-radius: var(--radius-full);
       overflow: hidden;
 
@@ -934,7 +1024,7 @@ onMounted(() => {
     justify-content: space-between;
     margin-top: var(--space-4);
     padding-top: var(--space-4);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-subtle);
     position: relative;
     z-index: 1;
 
@@ -989,8 +1079,8 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
     margin-bottom: var(--space-4);
 
@@ -1034,8 +1124,8 @@ onMounted(() => {
     .el-pagination__sizes {
       .el-select {
         .el-input__wrapper {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--glass-bg);
+          border: 1px solid var(--glass-border);
           box-shadow: none;
 
           .el-input__inner {
@@ -1047,13 +1137,13 @@ onMounted(() => {
 
     .el-pager {
       li {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         color: var(--text-secondary);
 
         &:hover {
           color: var(--text-primary);
-          border-color: rgba(255, 255, 255, 0.2);
+          border-color: var(--glass-border-hover);
         }
 
         &.is-active {
@@ -1066,8 +1156,8 @@ onMounted(() => {
 
     .btn-prev,
     .btn-next {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       color: var(--text-secondary);
 
       &:hover {
@@ -1083,8 +1173,8 @@ onMounted(() => {
       color: var(--text-tertiary);
 
       .el-input__wrapper {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         box-shadow: none;
 
         .el-input__inner {
@@ -1102,13 +1192,13 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     transition: all 0.3s ease;
 
     &:hover, &:focus-within {
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: var(--glass-border-hover);
     }
 
     .el-icon {
@@ -1180,13 +1270,13 @@ onMounted(() => {
     transition: all 0.3s ease;
 
     &:not(.primary) {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       color: var(--text-secondary);
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.2);
+        background: var(--glass-bg-active);
+        border-color: var(--glass-border-hover);
         color: var(--text-primary);
       }
     }
@@ -1199,7 +1289,7 @@ onMounted(() => {
 
       &:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
       }
 
       &:disabled {
@@ -1216,7 +1306,7 @@ onMounted(() => {
       .loading-spinner {
         width: 14px;
         height: 14px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        border: 2px solid var(--glass-border-hover);
         border-top-color: white;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
@@ -1236,7 +1326,7 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-4);
     padding-bottom: var(--space-5);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-subtle);
     margin-bottom: var(--space-5);
 
     .detail-icon {
@@ -1273,12 +1363,12 @@ onMounted(() => {
         border-radius: var(--radius-full);
 
         &.active {
-          background: rgba(16, 185, 129, 0.15);
+          background: var(--secondary-surface);
           color: var(--secondary-400);
         }
 
         &.inactive {
-          background: rgba(148, 163, 184, 0.15);
+          background: var(--neutral-surface);
           color: var(--text-muted);
         }
       }
@@ -1302,7 +1392,7 @@ onMounted(() => {
       justify-content: space-between;
       align-items: center;
       padding: var(--space-3) 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid var(--border-subtle);
 
       .item-label {
         font-size: var(--text-sm);
@@ -1327,8 +1417,8 @@ onMounted(() => {
       align-items: center;
       gap: var(--space-3);
       padding: var(--space-4);
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
 
       .stat-icon {
@@ -1340,17 +1430,17 @@ onMounted(() => {
         border-radius: var(--radius-md);
 
         &.total {
-          background: rgba(99, 102, 241, 0.15);
+          background: var(--primary-surface);
           color: var(--primary-400);
         }
 
         &.available {
-          background: rgba(16, 185, 129, 0.15);
+          background: var(--secondary-surface);
           color: var(--secondary-400);
         }
 
         &.used {
-          background: rgba(244, 63, 94, 0.15);
+          background: var(--accent-surface);
           color: var(--accent-400);
         }
 

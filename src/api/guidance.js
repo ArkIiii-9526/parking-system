@@ -17,3 +17,11 @@ export function getParkingNavigation(params) {
     params
   })
 }
+
+export function planGuidanceRoute(data) {
+  return request({
+    url: '/guidance/route/plan',
+    method: 'post',
+    data
+  })
+}

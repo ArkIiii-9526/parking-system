@@ -16,6 +16,12 @@
           <el-icon><Refresh /></el-icon>
           <span>刷新数据</span>
         </button>
+        <el-select v-if="exportFormatOptions.length > 1" v-model="exportFormat" size="small" style="width: 100px">
+          <el-option v-for="f in exportFormatOptions" :key="f" :label="f" :value="f" />
+        </el-select>
+        <el-tooltip v-else-if="exportFormatOptions.length" :content="`支持: ${exportFormatOptions.join(', ')}`">
+          <span class="format-chip">{{ exportFormatOptions[0] }}</span>
+        </el-tooltip>
         <button class="export-btn" v-permission="'analytics:utilization:export'" @click="handleExport">
           <el-icon><Download /></el-icon>
           <span>导出报表</span>
@@ -175,12 +181,26 @@ import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { getUtilizationAnalysis, exportUtilization } from '@/api/analytics'
+import {
+  createAreaGradient,
+  getAnalyticsTheme,
+  observeThemeChange
+} from '@/utils/analyticsTheme'
+import {
+  loadAnalyticsExportFormats,
+  appendFormatToPayload,
+  exportBlobMimeType,
+  exportFileExtension
+} from '@/utils/analyticsExportFormats'
 
 const loading = ref(false)
+const exportFormatOptions = ref([])
+const exportFormat = ref('excel')
 const overviewChartRef = ref(null)
 const trendChartRef = ref(null)
 let overviewChart = null
 let trendChart = null
+let stopThemeObserver = null
 
 const utilizationData = ref([])
 const trendPeriod = ref('day')
@@ -241,11 +261,16 @@ function formatTime(time) {
 
 async function handleExport() {
   try {
-    const res = await exportUtilization({})
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    let payload = {}
+    payload = appendFormatToPayload(payload, exportFormat.value)
+    const res = await exportUtilization(payload)
+    const raw = res?.data ?? res
+    const blob =
+      raw instanceof Blob ? raw : new Blob([raw], { type: exportBlobMimeType(exportFormat.value) })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `利用率分析_${new Date().toISOString().split('T')[0]}.xlsx`
+    const ext = exportFileExtension(exportFormat.value)
+    link.download = `利用率分析_${new Date().toISOString().split('T')[0]}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {
@@ -275,6 +300,7 @@ function handleResize() {
 
 function updateOverviewChart() {
   if (!overviewChart) return
+  const theme = getAnalyticsTheme()
 
   const option = {
     series: [{
@@ -287,17 +313,17 @@ function updateOverviewChart() {
         {
           value: totalStats.occupiedSpaces,
           name: '已占用',
-          itemStyle: { color: '#f43f5e' }
+          itemStyle: { color: theme.accent }
         },
         {
           value: totalStats.reservedSpaces,
           name: '已预约',
-          itemStyle: { color: '#f59e0b' }
+          itemStyle: { color: theme.warning }
         },
         {
           value: totalStats.availableSpaces,
           name: '空闲',
-          itemStyle: { color: '#10b981' }
+          itemStyle: { color: theme.secondary }
         }
       ]
     }]
@@ -307,6 +333,7 @@ function updateOverviewChart() {
 
 function updateTrendChart() {
   if (!trendChart) return
+  const theme = getAnalyticsTheme()
 
   // 从API数据中获取趋势数据
   const trendData = utilizationData.value[0]?.hourlyTrend || []
@@ -328,15 +355,15 @@ function updateTrendChart() {
       type: 'category',
       boundaryGap: false,
       data: hours,
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)' }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     yAxis: {
       type: 'value',
       max: 100,
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisLabel: { color: 'rgba(255,255,255,0.6)', formatter: '{value}%' },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary, formatter: '{value}%' },
+      splitLine: { lineStyle: { color: theme.splitLine } }
     },
     series: [{
       name: '利用率',
@@ -344,25 +371,30 @@ function updateTrendChart() {
       smooth: true,
       data: data,
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(99, 102, 241, 0.5)' },
-          { offset: 1, color: 'rgba(99, 102, 241, 0.05)' }
-        ])
+        color: createAreaGradient(theme.primary, 0.45, 0.05)
       },
-      lineStyle: { color: '#6366f1', width: 3 },
-      itemStyle: { color: '#6366f1' }
+      lineStyle: { color: theme.primary, width: 3 },
+      itemStyle: { color: theme.primary }
     }]
   }
   trendChart.setOption(option)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  const fmts = await loadAnalyticsExportFormats()
+  exportFormatOptions.value = fmts
+  exportFormat.value = fmts[0] || 'excel'
   loadData()
   initCharts()
+  stopThemeObserver = observeThemeChange(() => {
+    updateOverviewChart()
+    updateTrendChart()
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  stopThemeObserver?.()
   overviewChart?.dispose()
   trendChart?.dispose()
 })
@@ -421,6 +453,15 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .format-chip {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    background: var(--glass-bg);
   }
 
   .refresh-btn, .export-btn {
@@ -440,7 +481,7 @@ onUnmounted(() => {
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
     }
 
     .el-icon {
@@ -449,29 +490,29 @@ onUnmounted(() => {
   }
 
   .refresh-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
 
     &:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: var(--glass-bg-hover);
     }
   }
 
   .export-btn {
     background: linear-gradient(135deg, var(--secondary-500), var(--secondary-600));
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    box-shadow: var(--shadow-glow-secondary);
 
     &:hover {
-      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-secondary);
     }
   }
 }
 
 // 概览卡片
 .overview-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
   margin-bottom: var(--space-6);
@@ -526,8 +567,8 @@ onUnmounted(() => {
       align-items: center;
       gap: var(--space-3);
       padding: var(--space-4);
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: var(--glass-bg);
+      border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
 
       .stat-icon {
@@ -624,9 +665,9 @@ onUnmounted(() => {
           height: 10px;
           border-radius: 50%;
 
-          &.low { background: #10b981; }
-          &.medium { background: #f59e0b; }
-          &.high { background: #f43f5e; }
+          &.low { background: var(--secondary-500); }
+          &.medium { background: var(--warning-500); }
+          &.high { background: var(--accent-500); }
         }
       }
     }
@@ -639,29 +680,29 @@ onUnmounted(() => {
   }
 
   .parking-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--glass-bg);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
     padding: var(--space-5);
     transition: all 0.3s ease;
 
     &:hover {
       transform: translateY(-4px);
-      border-color: rgba(255, 255, 255, 0.2);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      border-color: var(--glass-border-hover);
+      box-shadow: var(--shadow-xl);
     }
 
     &.low {
-      border-left: 4px solid #10b981;
+      border-left: 4px solid var(--secondary-500);
     }
 
     &.medium {
-      border-left: 4px solid #f59e0b;
+      border-left: 4px solid var(--warning-500);
     }
 
     &.high {
-      border-left: 4px solid #f43f5e;
+      border-left: 4px solid var(--accent-500);
     }
 
     .card-header {
@@ -684,17 +725,17 @@ onUnmounted(() => {
 
         &.low {
           background: rgba(16, 185, 129, 0.15);
-          color: #10b981;
+          color: var(--secondary-500);
         }
 
         &.medium {
           background: rgba(245, 158, 11, 0.15);
-          color: #f59e0b;
+          color: var(--warning-500);
         }
 
         &.high {
           background: rgba(244, 63, 94, 0.15);
-          color: #f43f5e;
+          color: var(--accent-500);
         }
       }
     }
@@ -705,7 +746,7 @@ onUnmounted(() => {
 
         .bar-bg {
           height: 10px;
-          background: rgba(255, 255, 255, 0.1);
+          background: var(--glass-bg-hover);
           border-radius: var(--radius-full);
           overflow: hidden;
 
@@ -754,7 +795,7 @@ onUnmounted(() => {
       justify-content: space-between;
       margin-top: var(--space-4);
       padding-top: var(--space-4);
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      border-top: 1px solid var(--border-subtle);
 
       .update-time {
         display: flex;
@@ -794,9 +835,9 @@ onUnmounted(() => {
 
 // 趋势卡片
 .trend-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
 

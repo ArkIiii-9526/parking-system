@@ -716,7 +716,7 @@ onMounted(() => {
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
     }
 
     .el-icon {
@@ -727,9 +727,9 @@ onMounted(() => {
 
 // 筛选卡片
 .filter-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   margin-bottom: var(--space-6);
@@ -776,14 +776,14 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     transition: all 0.3s ease;
 
     &:hover, &:focus-within {
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--glass-border-hover);
+      background: var(--glass-bg-hover);
     }
 
     .filter-icon {
@@ -825,15 +825,15 @@ onMounted(() => {
     font-size: var(--text-sm);
     font-weight: var(--font-medium);
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.3s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--glass-bg-active);
+      border-color: var(--glass-border-hover);
       color: var(--text-primary);
     }
 
@@ -845,7 +845,7 @@ onMounted(() => {
 
       &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
       }
     }
 
@@ -857,9 +857,9 @@ onMounted(() => {
 
 // 表格卡片
 .table-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-5);
   overflow: hidden;
@@ -871,10 +871,10 @@ onMounted(() => {
 
   :deep(.el-table__header) {
     th {
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--glass-bg);
       color: var(--text-secondary);
       font-weight: var(--font-semibold);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid var(--border-subtle);
     }
   }
 
@@ -882,12 +882,12 @@ onMounted(() => {
     background: transparent;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.03);
+      background: var(--neutral-surface);
     }
 
     td {
       color: var(--text-primary);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid var(--border-subtle);
     }
   }
 
@@ -905,7 +905,7 @@ onMounted(() => {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--primary-400);
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--primary-surface);
   border-radius: var(--radius-md);
 }
 
@@ -942,7 +942,7 @@ onMounted(() => {
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--glass-bg-hover);
   border-radius: var(--radius-md);
 }
 
@@ -1000,22 +1000,22 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     color: var(--text-tertiary);
     cursor: pointer;
     transition: all 0.3s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: var(--glass-bg-active);
+      border-color: var(--glass-border-hover);
       color: var(--text-primary);
     }
 
     &.danger:hover {
-      background: rgba(244, 63, 94, 0.1);
-      border-color: rgba(244, 63, 94, 0.3);
+      background: var(--accent-surface);
+      border-color: color-mix(in srgb, var(--accent-500) 35%, transparent);
       color: var(--accent-400);
     }
 
@@ -1040,8 +1040,8 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
     margin-bottom: var(--space-4);
 
@@ -1071,7 +1071,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: var(--space-4) 0 0;
   margin-top: var(--space-4);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-subtle);
 
   .pagination-info {
     font-size: var(--text-sm);
@@ -1087,8 +1087,8 @@ onMounted(() => {
     .el-pagination__sizes {
       .el-select {
         .el-input__wrapper {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: var(--glass-bg);
+          border: 1px solid var(--glass-border);
           box-shadow: none;
 
           .el-input__inner {
@@ -1100,13 +1100,13 @@ onMounted(() => {
 
     .el-pager {
       li {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         color: var(--text-secondary);
 
         &:hover {
           color: var(--text-primary);
-          border-color: rgba(255, 255, 255, 0.2);
+          border-color: var(--glass-border-hover);
         }
 
         &.is-active {
@@ -1119,8 +1119,8 @@ onMounted(() => {
 
     .btn-prev,
     .btn-next {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       color: var(--text-secondary);
 
       &:hover {
@@ -1136,8 +1136,8 @@ onMounted(() => {
       color: var(--text-tertiary);
 
       .el-input__wrapper {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         box-shadow: none;
 
         .el-input__inner {
@@ -1155,13 +1155,13 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     transition: all 0.3s ease;
 
     &:hover, &:focus-within {
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: var(--glass-border-hover);
     }
 
     .el-icon {
@@ -1190,12 +1190,12 @@ onMounted(() => {
 
   :deep(.el-textarea) {
     .el-textarea__inner {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       color: var(--text-primary);
 
       &:hover, &:focus {
-        border-color: rgba(255, 255, 255, 0.2);
+        border-color: var(--glass-border-hover);
       }
     }
   }
@@ -1216,13 +1216,13 @@ onMounted(() => {
     transition: all 0.3s ease;
 
     &:not(.primary) {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       color: var(--text-secondary);
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.2);
+        background: var(--glass-bg-active);
+        border-color: var(--glass-border-hover);
         color: var(--text-primary);
       }
     }
@@ -1235,7 +1235,7 @@ onMounted(() => {
 
       &:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
       }
 
       &:disabled {
@@ -1252,7 +1252,7 @@ onMounted(() => {
       .loading-spinner {
         width: 14px;
         height: 14px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        border: 2px solid var(--glass-border-hover);
         border-top-color: white;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
@@ -1272,7 +1272,7 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-4);
     padding-bottom: var(--space-5);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-subtle);
     margin-bottom: var(--space-5);
 
     .detail-icon {
@@ -1324,7 +1324,7 @@ onMounted(() => {
       justify-content: space-between;
       align-items: center;
       padding: var(--space-3) 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid var(--border-subtle);
 
       .item-label {
         font-size: var(--text-sm);
@@ -1350,8 +1350,8 @@ onMounted(() => {
       align-items: center;
       gap: var(--space-3);
       padding: var(--space-4);
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
 
       .stat-icon {
@@ -1363,22 +1363,22 @@ onMounted(() => {
         border-radius: var(--radius-md);
 
         &.total {
-          background: rgba(99, 102, 241, 0.15);
+          background: var(--primary-surface);
           color: var(--primary-400);
         }
 
         &.available {
-          background: rgba(16, 185, 129, 0.15);
+          background: var(--secondary-surface);
           color: var(--secondary-400);
         }
 
         &.occupied {
-          background: rgba(244, 63, 94, 0.15);
+          background: var(--accent-surface);
           color: var(--accent-400);
         }
 
         &.reserved {
-          background: rgba(245, 158, 11, 0.15);
+          background: var(--warning-surface);
           color: var(--warning-400);
         }
 
@@ -1407,8 +1407,8 @@ onMounted(() => {
   }
 
   .utilization-chart {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
 
@@ -1433,7 +1433,7 @@ onMounted(() => {
 
     .chart-bar {
       height: 12px;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg-active);
       border-radius: var(--radius-full);
       overflow: hidden;
 

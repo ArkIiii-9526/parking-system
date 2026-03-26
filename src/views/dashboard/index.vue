@@ -16,7 +16,12 @@
           <el-icon><Refresh /></el-icon>
           <span>刷新数据</span>
         </button>
-        <button class="action-btn primary">
+        <button
+          v-permission="'analytics:report:export'"
+          class="action-btn primary"
+          type="button"
+          @click="handleExportReport"
+        >
           <el-icon><Download /></el-icon>
           <span>导出报表</span>
         </button>
@@ -77,8 +82,8 @@
             <svg class="circular-chart" viewBox="0 0 200 200">
               <defs>
                 <linearGradient id="chartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#6366F1"/>
-                  <stop offset="100%" style="stop-color:#10B981"/>
+                  <stop offset="0%" stop-color="var(--primary-500)"/>
+                  <stop offset="100%" stop-color="var(--secondary-500)"/>
                 </linearGradient>
               </defs>
               <circle class="chart-bg" cx="100" cy="100" r="80"/>
@@ -146,7 +151,7 @@
           <el-icon><Clock /></el-icon>
           <span>最近车辆进出记录</span>
         </div>
-        <button class="view-all-btn">
+        <button type="button" class="view-all-btn" @click="router.push('/vehicle')">
           查看全部
           <el-icon><ArrowRight /></el-icon>
         </button>
@@ -200,6 +205,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { getParkingPage } from '@/api/parking'
 import { getDailyStatistics } from '@/api/billing'
 import { getVehicleRecordsByParking } from '@/api/vehicle'
+import { exportComprehensive } from '@/api/analytics'
+import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -283,6 +290,36 @@ function refreshData() {
     animated.value = true
   }, 100)
   loadDashboardData()
+}
+
+async function handleExportReport() {
+  try {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - 29)
+    const fmt = (d) => d.toISOString().split('T')[0]
+    const res = await exportComprehensive({
+      startDate: fmt(start),
+      endDate: fmt(end),
+      periodType: 'day',
+      fileName: `综合报表_${fmt(end)}`
+    })
+    const raw = res?.data ?? res
+    const blob =
+      raw instanceof Blob
+        ? raw
+        : new Blob([raw], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `综合报表_${fmt(end)}.xlsx`
+    link.click()
+    ElMessage.success('导出成功')
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('导出失败')
+  }
 }
 
 async function loadDashboardData() {
@@ -406,15 +443,15 @@ onMounted(() => {
       font-size: var(--text-sm);
       font-weight: var(--font-medium);
       color: var(--text-secondary);
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius-md);
       cursor: pointer;
       transition: all 0.3s ease;
       
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.2);
+        background: var(--glass-bg-active);
+        border-color: var(--glass-border-hover);
         color: var(--text-primary);
       }
       
@@ -426,7 +463,7 @@ onMounted(() => {
         
         &:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+          box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
         }
       }
       
@@ -455,9 +492,9 @@ onMounted(() => {
 
 .stat-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
   display: flex;
@@ -475,8 +512,8 @@ onMounted(() => {
   
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-xl);
   }
   
   .stat-glow {
@@ -570,12 +607,12 @@ onMounted(() => {
       border-radius: var(--radius-full);
       
       &.up {
-        background: rgba(16, 185, 129, 0.2);
+        background: var(--secondary-surface-strong);
         color: var(--secondary-400);
       }
       
       &.down {
-        background: rgba(244, 63, 94, 0.2);
+        background: var(--accent-surface-strong);
         color: var(--accent-400);
       }
       
@@ -600,9 +637,9 @@ onMounted(() => {
 
 // 通用卡片样式
 .dashboard-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   overflow: hidden;
   
@@ -611,7 +648,7 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     padding: var(--space-5) var(--space-6);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--border-subtle);
     
     .header-title {
       display: flex;
@@ -631,8 +668,8 @@ onMounted(() => {
     .header-actions {
       :deep(.el-radio-group) {
         .el-radio-button__inner {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(255, 255, 255, 0.1);
+          background: var(--glass-bg);
+          border-color: var(--glass-border);
           color: var(--text-tertiary);
           
           &:hover {
@@ -718,7 +755,7 @@ onMounted(() => {
       
       .chart-bg {
         fill: none;
-        stroke: rgba(255, 255, 255, 0.1);
+        stroke: var(--glass-border);
         stroke-width: 12;
       }
       
@@ -741,7 +778,7 @@ onMounted(() => {
       align-items: center;
       gap: var(--space-3);
       padding: var(--space-3) 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid var(--border-subtle);
       
       &:last-child {
         border-bottom: none;
@@ -757,7 +794,7 @@ onMounted(() => {
         }
         
         &.available {
-          background: rgba(255, 255, 255, 0.2);
+          background: var(--neutral-surface-strong);
         }
       }
       
@@ -790,16 +827,16 @@ onMounted(() => {
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-4);
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--neutral-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: left;
     
     &:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.15);
+      background: var(--glass-bg-hover);
+      border-color: var(--glass-border-hover);
       transform: translateX(4px);
     }
     
@@ -866,7 +903,7 @@ onMounted(() => {
       grid-template-columns: 120px 1fr 140px 140px 80px 80px;
       gap: var(--space-4);
       padding: var(--space-3) var(--space-4);
-      background: rgba(255, 255, 255, 0.03);
+      background: var(--neutral-surface);
       border-radius: var(--radius-md);
       margin-bottom: var(--space-3);
       
@@ -885,7 +922,7 @@ onMounted(() => {
         grid-template-columns: 120px 1fr 140px 140px 80px 80px;
         gap: var(--space-4);
         padding: var(--space-4);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid var(--border-subtle);
         opacity: 0;
         transform: translateX(-20px);
         transition: all 0.4s ease;
@@ -896,7 +933,7 @@ onMounted(() => {
         }
         
         &:hover {
-          background: rgba(255, 255, 255, 0.03);
+          background: var(--neutral-surface);
           border-radius: var(--radius-md);
         }
         
@@ -914,7 +951,7 @@ onMounted(() => {
             font-family: var(--font-mono);
             font-weight: var(--font-semibold);
             color: var(--text-primary);
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--glass-bg-hover);
             padding: var(--space-1) var(--space-3);
             border-radius: var(--radius-sm);
           }
@@ -943,12 +980,12 @@ onMounted(() => {
             border-radius: var(--radius-full);
             
             &.completed {
-              background: rgba(16, 185, 129, 0.15);
+              background: var(--secondary-surface);
               color: var(--secondary-400);
             }
             
             &.active {
-              background: rgba(99, 102, 241, 0.15);
+              background: var(--primary-surface);
               color: var(--primary-400);
             }
           }

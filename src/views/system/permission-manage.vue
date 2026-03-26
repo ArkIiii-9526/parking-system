@@ -1,5 +1,5 @@
 <template>
-  <div class="permission-container">
+  <div class="permission-container legacy-themed-page">
     <el-card class="filter-card">
       <el-form :model="filterForm" :inline="true" class="filter-form">
         <el-form-item label="权限名称">

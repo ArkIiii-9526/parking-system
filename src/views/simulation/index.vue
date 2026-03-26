@@ -105,18 +105,20 @@
             <h3>快速操作</h3>
           </div>
           <div class="quick-actions">
-            <el-button type="primary" plain @click="handleQuickGenerate('light')">
-              <el-icon><Lightning /></el-icon>
-              轻量生成 (100条)
-            </el-button>
-            <el-button type="success" plain @click="handleQuickGenerate('normal')">
-              <el-icon><DataLine /></el-icon>
-              标准生成 (500条)
-            </el-button>
-            <el-button type="warning" plain @click="handleQuickGenerate('heavy')">
-              <el-icon><Histogram /></el-icon>
-              大量生成 (2000条)
-            </el-button>
+            <div v-permission="'simulation:update'" class="quick-actions-inner">
+              <el-button type="primary" plain @click="handleQuickGenerate('light')">
+                <el-icon><Lightning /></el-icon>
+                轻量生成 (100条)
+              </el-button>
+              <el-button type="success" plain @click="handleQuickGenerate('normal')">
+                <el-icon><DataLine /></el-icon>
+                标准生成 (500条)
+              </el-button>
+              <el-button type="warning" plain @click="handleQuickGenerate('heavy')">
+                <el-icon><Histogram /></el-icon>
+                大量生成 (2000条)
+              </el-button>
+            </div>
           </div>
         </div>
       </el-col>
@@ -149,7 +151,7 @@
             <span class="value danger">{{ currentParking.occupiedSpaces }}</span>
           </div>
         </div>
-        <div class="space-grid">
+        <div v-permission="'simulation:update'" class="space-grid">
           <div 
             v-for="space in currentParking.spaces" 
             :key="space.id"
@@ -247,7 +249,7 @@
             </el-tag>
           </div>
         </div>
-        <div class="action-buttons">
+        <div v-permission="'simulation:update'" class="action-buttons">
           <el-button 
             v-for="status in ['available', 'occupied', 'reserved', 'maintenance']" 
             :key="status"
@@ -562,42 +564,46 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .simulation-page {
-  padding: 20px;
+  padding: var(--space-6);
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
   
   h2 {
     margin: 0 0 8px 0;
-    font-size: 24px;
-    font-weight: 600;
-    color: #303133;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
   }
   
   .subtitle {
     margin: 0;
-    color: #909399;
-    font-size: 14px;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
   }
 }
 
 .operation-cards {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .operation-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--glass-bg);
   backdrop-filter: blur(10px);
-  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   padding: 24px;
   text-align: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
   transition: all 0.3s ease;
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--glass-border-hover);
   }
   
   .card-icon {
@@ -611,15 +617,17 @@ onMounted(() => {
     color: white;
     
     &.primary {
-      background: linear-gradient(135deg, #409eff 0%, #79bbff 100%);
+      background: linear-gradient(135deg, var(--primary-500), var(--primary-400));
+      box-shadow: var(--shadow-glow-primary);
     }
     
     &.warning {
-      background: linear-gradient(135deg, #e6a23c 0%, #eebe77 100%);
+      background: linear-gradient(135deg, var(--warning-500), var(--warning-400));
     }
     
     &.danger {
-      background: linear-gradient(135deg, #f56c6c 0%, #f89898 100%);
+      background: linear-gradient(135deg, var(--accent-500), var(--accent-400));
+      box-shadow: var(--shadow-glow-accent);
     }
   }
   
@@ -627,26 +635,27 @@ onMounted(() => {
     margin: 0 0 8px 0;
     font-size: 18px;
     font-weight: 600;
-    color: #303133;
+    color: var(--text-primary);
   }
   
   p {
     margin: 0 0 16px 0;
-    color: #909399;
+    color: var(--text-muted);
     font-size: 14px;
   }
 }
 
 .overview-row {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .data-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--glass-bg);
   backdrop-filter: blur(10px);
-  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
   height: 100%;
   
   .card-header {
@@ -659,7 +668,7 @@ onMounted(() => {
       margin: 0;
       font-size: 16px;
       font-weight: 600;
-      color: #303133;
+      color: var(--text-primary);
     }
   }
 }
@@ -675,19 +684,20 @@ onMounted(() => {
 .stat-item {
   text-align: center;
   padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   
   .stat-value {
     font-size: 20px;
     font-weight: 600;
-    color: #303133;
+    color: var(--text-primary);
     margin-bottom: 4px;
   }
   
   .stat-label {
     font-size: 12px;
-    color: #909399;
+    color: var(--text-muted);
   }
 }
 
@@ -695,6 +705,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  .quick-actions-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
   
   .el-button {
     justify-content: flex-start;
@@ -712,26 +728,27 @@ onMounted(() => {
     gap: 24px;
     margin-bottom: 20px;
     padding: 16px;
-    background: #f5f7fa;
-    border-radius: 8px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
     
     .info-item {
       .label {
-        color: #909399;
+        color: var(--text-muted);
         font-size: 12px;
         margin-right: 4px;
       }
       
       .value {
         font-weight: 600;
-        color: #303133;
+        color: var(--text-primary);
         
         &.success {
-          color: #67c23a;
+          color: var(--secondary-400);
         }
         
         &.danger {
-          color: #f56c6c;
+          color: var(--accent-400);
         }
       }
     }
@@ -748,7 +765,7 @@ onMounted(() => {
     
     .space-item {
       aspect-ratio: 1;
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -758,51 +775,51 @@ onMounted(() => {
       position: relative;
       
       &.available {
-        background: #f0f9ff;
-        border: 2px solid #79bbff;
+        background: var(--primary-surface);
+        border: 2px solid var(--primary-400);
         
         &:hover {
-          background: #d9ecff;
+          background: var(--primary-surface-strong);
         }
       }
       
       &.occupied {
-        background: #fef0f0;
-        border: 2px solid #f89898;
+        background: var(--accent-surface);
+        border: 2px solid var(--accent-400);
         
         &:hover {
-          background: #fcd3d3;
+          background: var(--accent-surface-strong);
         }
       }
       
       &.reserved {
-        background: #fdf6ec;
-        border: 2px solid #eebe77;
+        background: var(--warning-surface);
+        border: 2px solid var(--warning-400);
         
         &:hover {
-          background: #fae2c2;
+          background: var(--warning-surface-strong);
         }
       }
       
       &.maintenance {
-        background: #f4f4f5;
-        border: 2px solid #b1b3b8;
+        background: var(--neutral-surface);
+        border: 2px solid var(--text-muted);
         
         &:hover {
-          background: #e4e4e5;
+          background: var(--neutral-surface-strong);
         }
       }
       
       .space-number {
         font-size: 12px;
         font-weight: 600;
-        color: #606266;
+        color: var(--text-secondary);
       }
       
       .car-icon {
         position: absolute;
         font-size: 20px;
-        color: #f56c6c;
+        color: var(--accent-400);
       }
     }
   }
@@ -823,25 +840,25 @@ onMounted(() => {
         border-radius: 50%;
         
         &.available {
-          background: #79bbff;
+          background: var(--primary-400);
         }
         
         &.occupied {
-          background: #f89898;
+          background: var(--accent-400);
         }
         
         &.reserved {
-          background: #eebe77;
+          background: var(--warning-400);
         }
         
         &.maintenance {
-          background: #b1b3b8;
+          background: var(--text-muted);
         }
       }
       
       span {
         font-size: 12px;
-        color: #606266;
+        color: var(--text-secondary);
       }
     }
   }
@@ -849,7 +866,7 @@ onMounted(() => {
 
 .slider-value {
   margin-left: 12px;
-  color: #606266;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -857,8 +874,9 @@ onMounted(() => {
   .space-detail {
     margin-bottom: 20px;
     padding: 16px;
-    background: #f5f7fa;
-    border-radius: 8px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
     
     .detail-item {
       display: flex;
@@ -871,12 +889,12 @@ onMounted(() => {
       }
       
       .label {
-        color: #909399;
+        color: var(--text-muted);
       }
       
       .value {
         font-weight: 600;
-        color: #303133;
+        color: var(--text-primary);
       }
     }
   }

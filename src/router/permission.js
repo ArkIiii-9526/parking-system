@@ -2,6 +2,14 @@ import router from './index'
 import NProgress from 'nprogress'
 import { getToken } from '@/utils/token'
 import { ElMessage } from 'element-plus'
+import { hasPermission } from '@/utils/hasPermission'
+
+function checkRoutePermission(to) {
+  const raw = to.meta?.permission
+  if (!raw) return true
+  const codes = Array.isArray(raw) ? raw : [raw]
+  return codes.some((code) => hasPermission(code))
+}
 
 const whiteList = ['/login']
 
@@ -27,9 +35,21 @@ router.beforeEach(async (to, from, next) => {
         // 检查是否已经获取过用户信息，而不是依赖roles的长度
         // 因为API可能只返回菜单数据（数组格式），此时roles会是空数组
         if (store.menus && store.menus.length > 0) {
+          if (!checkRoutePermission(to)) {
+            ElMessage.warning('无权限访问该页面')
+            next({ path: '/404' })
+            NProgress.done()
+            return
+          }
           next()
         } else {
           await store.getUserInfo()
+          if (!checkRoutePermission(to)) {
+            ElMessage.warning('无权限访问该页面')
+            next({ path: '/404' })
+            NProgress.done()
+            return
+          }
           next()
         }
       } catch (error) {

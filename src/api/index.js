@@ -28,6 +28,15 @@ export * from './analytics'
 // 停车引导
 export * from './guidance'
 
+// 预约管理
+export * from './reservation'
+
+// 审计日志
+export * from './auditLog'
+
+// 缓存监控
+export * from './cache'
+
 // 系统管理 - 用户
 export * from './user'
 

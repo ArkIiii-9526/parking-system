@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { getUserInfo as getLocalUserInfo, setUserInfo, clearAll } from '@/utils/token'
 import { login, getUserInfo, logout } from '@/api/login'
 import router, { resetRouter } from '@/router'
+import { resetAnalyticsExportFormatsCache } from '@/utils/analyticsExportFormats'
 
 // 将后端菜单数据转换为前端路由格式
 function convertMenusToRouteFormat(menuList) {
@@ -65,7 +66,18 @@ export const useUserStore = defineStore('user', () => {
           // 否则按正常格式处理
           user.value = res.data.user
           roles.value = res.data.roles || []
-          permissions.value = res.data.permissions || []
+          const extractPermissions = (items) => {
+            if (!Array.isArray(items)) return []
+            const perms = []
+            items.forEach((item) => {
+              if (item.permissionCode) perms.push(item.permissionCode)
+              if (item.children?.length) perms.push(...extractPermissions(item.children))
+            })
+            return perms
+          }
+          const fromMenus = extractPermissions(res.data.menus || [])
+          const fromApi = res.data.permissions || []
+          permissions.value = [...new Set([...fromApi, ...fromMenus])]
           menus.value = convertMenusToRouteFormat(res.data.menus) || []
         }
         setUserInfo({
@@ -119,6 +131,7 @@ export const useUserStore = defineStore('user', () => {
     roles.value = []
     permissions.value = []
     menus.value = []
+    resetAnalyticsExportFormatsCache()
     clearAll()
   }
 

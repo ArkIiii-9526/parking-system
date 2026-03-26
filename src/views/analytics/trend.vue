@@ -15,6 +15,12 @@
           <el-option label="全部停车场" value="" />
           <el-option v-for="item in parkingOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
+        <el-select v-if="exportFormatOptions.length > 1" v-model="exportFormat" size="small" style="width: 100px">
+          <el-option v-for="f in exportFormatOptions" :key="f" :label="f" :value="f" />
+        </el-select>
+        <el-tooltip v-else-if="exportFormatOptions.length" :content="`支持: ${exportFormatOptions.join(', ')}`">
+          <span class="format-chip">{{ exportFormatOptions[0] }}</span>
+        </el-tooltip>
         <el-button v-permission="'analytics:trend:export'" type="primary" :icon="Download" size="small" @click="handleExport">
           导出数据
         </el-button>
@@ -173,8 +179,24 @@ import {
   ArrowDown
 } from '@element-plus/icons-vue'
 import { getTrendAnalysis, exportTrend } from '@/api/analytics'
+import {
+  createAreaGradient,
+  createVerticalGradient,
+  ensureChartInstance,
+  getAnalyticsTheme,
+  observeThemeChange,
+  withAlpha
+} from '@/utils/analyticsTheme'
+import {
+  loadAnalyticsExportFormats,
+  appendFormatToPayload,
+  exportBlobMimeType,
+  exportFileExtension
+} from '@/utils/analyticsExportFormats'
 
 const loading = ref(false)
+const exportFormatOptions = ref([])
+const exportFormat = ref('excel')
 const timeRange = ref('7')
 const selectedParking = ref('')
 const selectedMetrics = ref(['income', 'vehicles', 'occupancy'])
@@ -193,6 +215,7 @@ let incomeChart = null
 let vehicleChart = null
 let hourlyChart = null
 let weeklyChart = null
+let stopThemeObserver = null
 
 // 停车场选项
 const parkingOptions = ref([])
@@ -214,9 +237,10 @@ const trendData = ref({
 
 // 占用率颜色
 const getOccupancyColor = (percentage) => {
-  if (percentage < 50) return '#67c23a'
-  if (percentage < 80) return '#e6a23c'
-  return '#f56c6c'
+  const theme = getAnalyticsTheme()
+  if (percentage < 50) return theme.secondary
+  if (percentage < 80) return theme.warning
+  return theme.accent
 }
 
 // 统计卡片
@@ -274,7 +298,8 @@ function formatDuration(minutes) {
 // 初始化综合趋势图表
 function initComprehensiveChart() {
   if (!comprehensiveChartRef.value) return
-  comprehensiveChart = echarts.init(comprehensiveChartRef.value)
+  comprehensiveChart = ensureChartInstance(echarts, comprehensiveChartRef.value, comprehensiveChart)
+  const theme = getAnalyticsTheme()
 
   const dates = trendData.value.incomeTrend?.map(item => item.date) || []
 
@@ -287,13 +312,10 @@ function initComprehensiveChart() {
       data: trendData.value.incomeTrend?.map(item => item.value) || [],
       smooth: true,
       yAxisIndex: 0,
-      lineStyle: { color: '#67c23a', width: 3 },
-      itemStyle: { color: '#67c23a' },
+      lineStyle: { color: theme.secondary, width: 3 },
+      itemStyle: { color: theme.secondary },
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(103, 194, 58, 0.3)' },
-          { offset: 1, color: 'rgba(103, 194, 58, 0.05)' }
-        ])
+        color: createAreaGradient(theme.secondary)
       }
     })
   }
@@ -305,10 +327,7 @@ function initComprehensiveChart() {
       data: trendData.value.vehicleTrend?.map(item => item.value) || [],
       yAxisIndex: 1,
       itemStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#409eff' },
-          { offset: 1, color: '#79bbff' }
-        ]),
+        color: createVerticalGradient(theme.primary, theme.primarySoft),
         borderRadius: [4, 4, 0, 0]
       },
       barWidth: '30%'
@@ -322,8 +341,8 @@ function initComprehensiveChart() {
       data: trendData.value.occupancyTrend?.map(item => item.value) || [],
       smooth: true,
       yAxisIndex: 2,
-      lineStyle: { color: '#e6a23c', width: 2, type: 'dashed' },
-      itemStyle: { color: '#e6a23c' }
+      lineStyle: { color: theme.warning, width: 2, type: 'dashed' },
+      itemStyle: { color: theme.warning }
     })
   }
 
@@ -334,8 +353,8 @@ function initComprehensiveChart() {
       data: trendData.value.turnoverTrend?.map(item => item.value) || [],
       smooth: true,
       yAxisIndex: 3,
-      lineStyle: { color: '#f56c6c', width: 2 },
-      itemStyle: { color: '#f56c6c' }
+      lineStyle: { color: theme.accent, width: 2 },
+      itemStyle: { color: theme.accent }
     })
   }
   
@@ -346,8 +365,8 @@ function initComprehensiveChart() {
       name: '收入(¥)',
       position: 'left',
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#ebeef5' } },
-      axisLabel: { color: '#606266' }
+      splitLine: { lineStyle: { color: theme.splitLine } },
+      axisLabel: { color: theme.textSecondary }
     })
   }
   if (selectedMetrics.value.includes('vehicles')) {
@@ -357,7 +376,7 @@ function initComprehensiveChart() {
       position: selectedMetrics.value.includes('income') ? 'right' : 'left',
       axisLine: { show: false },
       splitLine: { show: false },
-      axisLabel: { color: '#606266' }
+      axisLabel: { color: theme.textSecondary }
     })
   }
   if (selectedMetrics.value.includes('occupancy')) {
@@ -367,7 +386,7 @@ function initComprehensiveChart() {
       position: 'right',
       axisLine: { show: false },
       splitLine: { show: false },
-      axisLabel: { color: '#606266' }
+      axisLabel: { color: theme.textSecondary }
     })
   }
   if (selectedMetrics.value.includes('turnover')) {
@@ -377,18 +396,22 @@ function initComprehensiveChart() {
       position: 'right',
       axisLine: { show: false },
       splitLine: { show: false },
-      axisLabel: { color: '#606266' }
+      axisLabel: { color: theme.textSecondary }
     })
   }
   
   const option = {
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross' }
+      axisPointer: { type: 'cross' },
+      backgroundColor: theme.panel,
+      borderColor: theme.border,
+      textStyle: { color: theme.textPrimary }
     },
     legend: {
       data: series.map(s => s.name),
-      bottom: 0
+      bottom: 0,
+      textStyle: { color: theme.textSecondary }
     },
     grid: {
       left: '3%',
@@ -399,8 +422,8 @@ function initComprehensiveChart() {
     xAxis: {
       type: 'category',
       data: dates,
-      axisLine: { lineStyle: { color: '#dcdfe6' } },
-      axisLabel: { color: '#606266' }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     yAxis,
     series
@@ -412,11 +435,15 @@ function initComprehensiveChart() {
 // 初始化收入趋势图表
 function initIncomeChart() {
   if (!incomeChartRef.value) return
-  incomeChart = echarts.init(incomeChartRef.value)
+  incomeChart = ensureChartInstance(echarts, incomeChartRef.value, incomeChart)
+  const theme = getAnalyticsTheme()
   const option = {
     tooltip: {
       trigger: 'axis',
-      formatter: '{b}: ¥{c}'
+      formatter: '{b}: ¥{c}',
+      backgroundColor: theme.panel,
+      borderColor: theme.border,
+      textStyle: { color: theme.textPrimary }
     },
     grid: {
       left: '3%',
@@ -427,15 +454,15 @@ function initIncomeChart() {
     xAxis: {
       type: 'category',
       data: trendData.value.incomeTrend?.map(item => item.date) || [],
-      axisLine: { lineStyle: { color: '#dcdfe6' } },
-      axisLabel: { color: '#606266' }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#ebeef5' } },
+      splitLine: { lineStyle: { color: theme.splitLine } },
       axisLabel: {
-        color: '#606266',
+        color: theme.textSecondary,
         formatter: '¥{value}'
       }
     },
@@ -446,19 +473,16 @@ function initIncomeChart() {
       symbol: 'circle',
       symbolSize: 8,
       lineStyle: {
-        color: '#67c23a',
+        color: theme.secondary,
         width: 3
       },
       itemStyle: {
-        color: '#67c23a',
+        color: theme.secondary,
         borderWidth: 2,
-        borderColor: '#fff'
+        borderColor: theme.inverse
       },
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(103, 194, 58, 0.3)' },
-          { offset: 1, color: 'rgba(103, 194, 58, 0.05)' }
-        ])
+        color: createAreaGradient(theme.secondary)
       }
     }]
   }
@@ -468,11 +492,15 @@ function initIncomeChart() {
 // 初始化车流量趋势图表
 function initVehicleChart() {
   if (!vehicleChartRef.value) return
-  vehicleChart = echarts.init(vehicleChartRef.value)
+  vehicleChart = ensureChartInstance(echarts, vehicleChartRef.value, vehicleChart)
+  const theme = getAnalyticsTheme()
   const option = {
     tooltip: {
       trigger: 'axis',
-      formatter: '{b}: {c}辆'
+      formatter: '{b}: {c}辆',
+      backgroundColor: theme.panel,
+      borderColor: theme.border,
+      textStyle: { color: theme.textPrimary }
     },
     grid: {
       left: '3%',
@@ -483,23 +511,20 @@ function initVehicleChart() {
     xAxis: {
       type: 'category',
       data: trendData.value.vehicleTrend?.map(item => item.date) || [],
-      axisLine: { lineStyle: { color: '#dcdfe6' } },
-      axisLabel: { color: '#606266' }
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#ebeef5' } },
-      axisLabel: { color: '#606266' }
+      splitLine: { lineStyle: { color: theme.splitLine } },
+      axisLabel: { color: theme.textSecondary }
     },
     series: [{
       data: trendData.value.vehicleTrend?.map(item => item.value) || [],
       type: 'bar',
       itemStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#409eff' },
-          { offset: 1, color: '#79bbff' }
-        ]),
+        color: createVerticalGradient(theme.primary, theme.primarySoft),
         borderRadius: [4, 4, 0, 0]
       },
       barWidth: '50%'
@@ -511,12 +536,16 @@ function initVehicleChart() {
 // 初始化时段分析图表
 function initHourlyChart() {
   if (!hourlyChartRef.value) return
-  hourlyChart = echarts.init(hourlyChartRef.value)
+  hourlyChart = ensureChartInstance(echarts, hourlyChartRef.value, hourlyChart)
+  const theme = getAnalyticsTheme()
   const data = trendData.value.hourlyData || []
   const option = {
     tooltip: {
       trigger: 'axis',
-      formatter: '{b}: {c}%'
+      formatter: '{b}: {c}%',
+      backgroundColor: theme.panel,
+      borderColor: theme.border,
+      textStyle: { color: theme.textPrimary }
     },
     grid: {
       left: '3%',
@@ -527,9 +556,9 @@ function initHourlyChart() {
     xAxis: {
       type: 'category',
       data: data.map(item => item.hour),
-      axisLine: { lineStyle: { color: '#dcdfe6' } },
+      axisLine: { lineStyle: { color: theme.axisLine } },
       axisLabel: { 
-        color: '#606266',
+        color: theme.textSecondary,
         interval: 2
       }
     },
@@ -537,9 +566,9 @@ function initHourlyChart() {
       type: 'value',
       max: 100,
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#ebeef5' } },
+      splitLine: { lineStyle: { color: theme.splitLine } },
       axisLabel: { 
-        color: '#606266',
+        color: theme.textSecondary,
         formatter: '{value}%'
       }
     },
@@ -549,14 +578,11 @@ function initHourlyChart() {
       smooth: true,
       symbol: 'none',
       lineStyle: {
-        color: '#e6a23c',
+        color: theme.warning,
         width: 3
       },
       areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(230, 162, 60, 0.3)' },
-          { offset: 1, color: 'rgba(230, 162, 60, 0.05)' }
-        ])
+        color: createAreaGradient(theme.warning)
       }
     }]
   }
@@ -566,16 +592,24 @@ function initHourlyChart() {
 // 初始化星期分布图表
 function initWeeklyChart() {
   if (!weeklyChartRef.value) return
-  weeklyChart = echarts.init(weeklyChartRef.value)
+  weeklyChart = ensureChartInstance(echarts, weeklyChartRef.value, weeklyChart)
+  const theme = getAnalyticsTheme()
   const data = trendData.value.weeklyData || []
   const option = {
     tooltip: {
       trigger: 'axis',
-      formatter: '{b}: {c}'
+      formatter: '{b}: {c}',
+      backgroundColor: theme.panel,
+      borderColor: theme.border,
+      textStyle: { color: theme.textPrimary }
     },
     radar: {
       indicator: data.map(item => ({ name: item.day, max: 100 })),
-      radius: '65%'
+      radius: '65%',
+      axisLine: { lineStyle: { color: theme.axisLine } },
+      splitLine: { lineStyle: { color: theme.splitLine } },
+      splitArea: { areaStyle: { color: [withAlpha(theme.primary, 0.04)] } },
+      axisName: { color: theme.textSecondary }
     },
     series: [{
       type: 'radar',
@@ -583,14 +617,14 @@ function initWeeklyChart() {
         value: data.map(item => item.value),
         name: '运营指数',
         areaStyle: {
-          color: 'rgba(64, 158, 255, 0.3)'
+          color: withAlpha(theme.primary, 0.3)
         },
         lineStyle: {
-          color: '#409eff',
+          color: theme.primary,
           width: 2
         },
         itemStyle: {
-          color: '#409eff'
+          color: theme.primary
         }
       }]
     }]
@@ -662,14 +696,19 @@ function handleDateRangeChange() {
 // 导出数据
 async function handleExport() {
   try {
-    const res = await exportTrend({ 
+    let payload = {
       days: timeRange.value,
       parkingId: selectedParking.value || undefined
-    })
-    const blob = new Blob([res], { type: 'application/vnd.ms-excel' })
+    }
+    payload = appendFormatToPayload(payload, exportFormat.value)
+    const res = await exportTrend(payload)
+    const raw = res?.data ?? res
+    const blob =
+      raw instanceof Blob ? raw : new Blob([raw], { type: exportBlobMimeType(exportFormat.value) })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `趋势分析_${timeRange.value}天_${new Date().toISOString().split('T')[0]}.xlsx`
+    const ext = exportFileExtension(exportFormat.value)
+    link.download = `趋势分析_${timeRange.value}天_${new Date().toISOString().split('T')[0]}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {
@@ -694,14 +733,25 @@ function handleResize() {
   weeklyChart?.resize()
 }
 
-onMounted(() => {
+onMounted(async () => {
+  const fmts = await loadAnalyticsExportFormats()
+  exportFormatOptions.value = fmts
+  exportFormat.value = fmts[0] || 'excel'
   loadParkingList()
   fetchTrendData()
   window.addEventListener('resize', handleResize)
+  stopThemeObserver = observeThemeChange(() => {
+    initComprehensiveChart()
+    initIncomeChart()
+    initVehicleChart()
+    initHourlyChart()
+    initWeeklyChart()
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  stopThemeObserver?.()
   comprehensiveChart?.dispose()
   incomeChart?.dispose()
   vehicleChart?.dispose()
@@ -712,70 +762,83 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .trend-analytics-page {
-  padding: 20px;
+  padding: var(--space-6);
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-6);
   
   .header-title {
     h2 {
       margin: 0 0 8px 0;
-      font-size: 24px;
-      font-weight: 600;
-      color: #303133;
+      font-size: var(--text-2xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
     }
     
     .subtitle {
       margin: 0;
-      color: #909399;
-      font-size: 14px;
+      color: var(--text-tertiary);
+      font-size: var(--text-sm);
     }
   }
   
+  .format-chip {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
   .header-actions {
     display: flex;
-    gap: 12px;
+    gap: var(--space-3);
+    flex-wrap: wrap;
   }
 }
 
 .stat-cards {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  gap: var(--space-4);
+  box-shadow: var(--shadow-lg);
   transition: all 0.3s ease;
   
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    border-color: var(--glass-border-hover);
+    box-shadow: var(--shadow-xl);
   }
   
   &.primary .card-icon {
-    background: linear-gradient(135deg, #409eff 0%, #79bbff 100%);
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
   }
   
   &.success .card-icon {
-    background: linear-gradient(135deg, #67c23a 0%, #95d475 100%);
+    background: linear-gradient(135deg, var(--secondary-500) 0%, var(--secondary-400) 100%);
   }
   
   &.warning .card-icon {
-    background: linear-gradient(135deg, #e6a23c 0%, #eebe77 100%);
+    background: linear-gradient(135deg, var(--warning-500) 0%, var(--warning-400) 100%);
   }
   
   &.info .card-icon {
-    background: linear-gradient(135deg, #909399 0%, #b1b3b8 100%);
+    background: linear-gradient(135deg, var(--text-muted) 0%, var(--text-tertiary) 100%);
   }
   
   .card-icon {
@@ -795,15 +858,15 @@ onUnmounted(() => {
   }
   
   .card-label {
-    font-size: 14px;
-    color: #909399;
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
     margin-bottom: 4px;
   }
   
   .card-value {
-    font-size: 24px;
-    font-weight: 600;
-    color: #303133;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
     margin-bottom: 4px;
   }
   
@@ -814,42 +877,43 @@ onUnmounted(() => {
     font-size: 12px;
     
     .trend-label {
-      color: #909399;
+      color: var(--text-muted);
     }
     
     .up {
-      color: #67c23a;
+      color: var(--secondary-400);
     }
     
     .down {
-      color: #f56c6c;
+      color: var(--accent-400);
     }
   }
 }
 
 .chart-row {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .chart-card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  margin-bottom: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: var(--space-4);
   
   .chart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
     
     h3 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #303133;
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
     }
   }
   
@@ -859,37 +923,38 @@ onUnmounted(() => {
 }
 
 .table-card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-lg);
   
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
     
     h3 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #303133;
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
     }
   }
   
   .amount {
     font-family: 'Roboto Mono', monospace;
     font-weight: 500;
-    color: #67c23a;
+    color: var(--secondary-400);
   }
   
   .table-footer {
     display: flex;
     justify-content: flex-end;
-    padding-top: 16px;
-    border-top: 1px solid #ebeef5;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-subtle);
   }
 }
 
@@ -897,7 +962,7 @@ onUnmounted(() => {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: var(--space-4);
     
     .header-actions {
       width: 100%;
@@ -906,7 +971,7 @@ onUnmounted(() => {
   }
   
   .stat-card {
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
   }
   
   .chart-card .chart-header {
