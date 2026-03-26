@@ -277,6 +277,78 @@ function formatTime(time) {
   return new Date(time).toLocaleString('zh-CN')
 }
 
+function normalizeBillingRule(rule = {}) {
+  return {
+    ...rule,
+    id: rule.id,
+    name: rule.name ?? rule.ruleName ?? '',
+    description: rule.description ?? rule.remark ?? '',
+    freeMinutes: rule.freeMinutes ?? 15,
+    firstHourFee: Number(rule.firstHourFee ?? rule.baseFee ?? 0),
+    hourlyFee: Number(rule.hourlyFee ?? rule.unitFee ?? 0),
+    maxFee: Number(rule.maxFee ?? rule.dailyCap ?? 0),
+    status: rule.status ?? rule.isActive ?? 0,
+    createTime: rule.createTime ?? rule.updateTime ?? rule.effectiveDate ?? null,
+    ruleCode: rule.ruleCode ?? null,
+    parkingId: rule.parkingId ?? null,
+    ruleType: rule.ruleType ?? 1,
+    baseTime: rule.baseTime ?? 60,
+    unitTime: rule.unitTime ?? 60,
+    dailyCap: Number(rule.dailyCap ?? rule.maxFee ?? 0),
+    monthlyCap: Number(rule.monthlyCap ?? 0),
+    graceMinutes: rule.graceMinutes ?? 0,
+    is24h: rule.is24h ?? 1,
+    dayStartTime: rule.dayStartTime ?? null,
+    dayEndTime: rule.dayEndTime ?? null,
+    dayUnitFee: Number(rule.dayUnitFee ?? 0),
+    nightUnitFee: Number(rule.nightUnitFee ?? 0),
+    holidayMultiplier: Number(rule.holidayMultiplier ?? 1),
+    effectiveDate: rule.effectiveDate ?? null,
+    expireDate: rule.expireDate ?? null,
+    parkingName: rule.parkingName ?? null,
+    generalRule: rule.generalRule ?? false,
+    remark: rule.remark ?? rule.description ?? ''
+  }
+}
+
+function buildBillingRulePayload(rule = {}) {
+  const normalizedRule = normalizeBillingRule(rule)
+  const payload = {
+    ruleName: normalizedRule.name,
+    ruleCode: normalizedRule.ruleCode,
+    parkingId: normalizedRule.parkingId,
+    ruleType: normalizedRule.ruleType,
+    baseFee: normalizedRule.firstHourFee,
+    baseTime: normalizedRule.baseTime,
+    unitFee: normalizedRule.hourlyFee,
+    unitTime: normalizedRule.unitTime,
+    dailyCap: normalizedRule.maxFee ?? 0,
+    monthlyCap: normalizedRule.monthlyCap,
+    freeMinutes: normalizedRule.freeMinutes,
+    graceMinutes: normalizedRule.graceMinutes,
+    is24h: normalizedRule.is24h,
+    dayStartTime: normalizedRule.dayStartTime,
+    dayEndTime: normalizedRule.dayEndTime,
+    dayUnitFee: normalizedRule.dayUnitFee,
+    nightUnitFee: normalizedRule.nightUnitFee,
+    holidayMultiplier: normalizedRule.holidayMultiplier,
+    isActive: normalizedRule.status,
+    effectiveDate: normalizedRule.effectiveDate,
+    expireDate: normalizedRule.expireDate,
+    remark: normalizedRule.description,
+    generalRule: normalizedRule.generalRule
+  }
+
+  if (!payload.ruleCode) {
+    delete payload.ruleCode
+  }
+  if (normalizedRule.id != null) {
+    payload.id = normalizedRule.id
+  }
+
+  return payload
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -287,8 +359,10 @@ async function loadData() {
       status: filterForm.status
     })
     if (res.code === 200) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      const list = res.data.records || res.data || []
+      const normalizedList = list.map(item => normalizeBillingRule(item))
+      tableData.value = normalizedList
+      pagination.total = res.data.total !== undefined && res.data.total !== 0 ? res.data.total : normalizedList.length
     }
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -341,13 +415,13 @@ function handleAdd() {
 
 function handleDetail(row) {
   dialogType.value = 'detail'
-  Object.assign(formData, row)
+  Object.assign(formData, normalizeBillingRule(row))
   dialogVisible.value = true
 }
 
 function handleEdit(row) {
   dialogType.value = 'edit'
-  Object.assign(formData, row)
+  Object.assign(formData, normalizeBillingRule(row))
   dialogVisible.value = true
 }
 
@@ -372,6 +446,10 @@ function handleDelete(row) {
 }
 
 async function handleStatusChange(row, newVal) {
+  if (row.status === newVal || row.id == null) {
+    return
+  }
+
   try {
     if (newVal === 0) {
       if (!hasPermission('billing:rule:disable')) {
@@ -409,9 +487,10 @@ async function handleSubmit() {
   try {
     await formRef.value.validate()
     submitLoading.value = true
+    const payload = buildBillingRulePayload(formData)
     
     if (dialogType.value === 'add') {
-      const res = await createBillingRule(formData)
+      const res = await createBillingRule(payload)
       if (res.code === 200) {
         ElMessage.success('新增成功')
         dialogVisible.value = false
@@ -420,7 +499,7 @@ async function handleSubmit() {
         ElMessage.error(res.msg || '新增失败')
       }
     } else {
-      const res = await updateBillingRule(formData)
+      const res = await updateBillingRule(payload)
       if (res.code === 200) {
         ElMessage.success('更新成功')
         dialogVisible.value = false

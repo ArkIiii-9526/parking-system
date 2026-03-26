@@ -95,7 +95,7 @@
             <el-option
               v-for="item in treeData"
               :key="item.id"
-              :label="item.name"
+              :label="item.displayName"
               :value="item.id"
             >
               <template #default="{ option }">
@@ -106,9 +106,9 @@
         </el-form-item>
         <el-form-item label="权限类型" prop="type">
           <el-select v-model="formData.type" placeholder="请选择权限类型">
-            <el-option label="目录" :value="0" />
-            <el-option label="菜单" :value="1" />
-            <el-option label="按钮" :value="2" />
+            <el-option label="菜单" value="MENU" />
+            <el-option label="按钮" value="BUTTON" />
+            <el-option label="接口" value="API" />
           </el-select>
         </el-form-item>
         <el-form-item label="权限名称" prop="name">
@@ -142,6 +142,14 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPermissionList, createPermission, updatePermission, deletePermission, refreshPermissionCache } from '@/api/permission'
+import {
+  buildPermissionPayload,
+  flattenPermissionTree,
+  getPermissionTypeTag as getTypeTag,
+  getPermissionTypeText as getTypeText,
+  normalizePermission,
+  normalizePermissionTree
+} from '@/utils/system-manage'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -165,7 +173,7 @@ const filterForm = reactive({
 const formData = reactive({
   id: null,
   parentId: null,
-  type: 1,
+  type: 'MENU',
   name: '',
   code: '',
   path: '',
@@ -185,16 +193,6 @@ const formRules = {
   ]
 }
 
-function getTypeTag(type) {
-  const tags = { 0: 'success', 1: 'primary', 2: 'warning' }
-  return tags[type] || 'info'
-}
-
-function getTypeText(type) {
-  const texts = { 0: '目录', 1: '菜单', 2: '按钮' }
-  return texts[type] || '未知'
-}
-
 async function loadData() {
   loading.value = true
   try {
@@ -204,8 +202,17 @@ async function loadData() {
       name: filterForm.name
     })
     if (res.code === 200) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      const list = res.data.records || res.data || []
+      pagination.total = res.data.total !== undefined ? res.data.total : list.length
+      const normalizedList = list.map(item => normalizePermission(item))
+      
+      if (!res.data.records && Array.isArray(res.data)) {
+        const start = (pagination.pageNo - 1) * pagination.pageSize
+        const end = start + pagination.pageSize
+        tableData.value = normalizedList.slice(start, end)
+      } else {
+        tableData.value = normalizedList
+      }
     }
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -219,18 +226,12 @@ async function loadTreeData() {
   try {
     const res = await getPermissionList({ pageNo: 1, pageSize: 999 })
     if (res.code === 200) {
-      treeData.value = convertToTree(res.data.records || [])
+      const list = res.data.records || res.data || []
+      treeData.value = flattenPermissionTree(normalizePermissionTree(list))
     }
   } catch (error) {
     console.error('加载树数据失败:', error)
   }
-}
-
-function convertToTree(data) {
-  return data.map(item => ({
-    id: item.id,
-    name: item.name
-  }))
 }
 
 function handleSearch() {
@@ -255,23 +256,27 @@ function handleCurrentChange(page) {
 
 function handleAdd() {
   dialogType.value = 'add'
-  Object.keys(formData).forEach(key => {
-    if (key === 'type') {
-      formData[key] = 1
-    } else if (key === 'sort') {
-      formData[key] = 0
-    } else if (key === 'status') {
-      formData[key] = 1
-    } else {
-      formData[key] = key === 'path' ? '' : null
-    }
+  Object.assign(formData, {
+    id: null,
+    parentId: null,
+    type: 'MENU',
+    name: '',
+    code: '',
+    path: '',
+    icon: '',
+    sort: 0,
+    status: 1,
+    component: '',
+    method: null,
+    isMenu: null,
+    menuId: null
   })
   dialogVisible.value = true
 }
 
 function handleEdit(row) {
   dialogType.value = 'edit'
-  Object.assign(formData, row)
+  Object.assign(formData, normalizePermission(row))
   dialogVisible.value = true
 }
 
@@ -313,9 +318,10 @@ async function handleSubmit() {
   try {
     await formRef.value.validate()
     submitLoading.value = true
+    const payload = buildPermissionPayload(formData)
     
     if (dialogType.value === 'add') {
-      const res = await createPermission(formData)
+      const res = await createPermission(payload)
       if (res.code === 200) {
         ElMessage.success('新增成功')
         dialogVisible.value = false
@@ -325,7 +331,7 @@ async function handleSubmit() {
         ElMessage.error(res.msg || '新增失败')
       }
     } else {
-      const res = await updatePermission(formData)
+      const res = await updatePermission(payload)
       if (res.code === 200) {
         ElMessage.success('更新成功')
         dialogVisible.value = false

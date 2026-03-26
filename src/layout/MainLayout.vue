@@ -46,6 +46,7 @@ function handleCollapse(collapsed) {
   display: flex;
   background: var(--bg-primary);
   position: relative;
+  overflow-x: hidden;
   
   &::before {
     content: '';
@@ -75,12 +76,16 @@ function handleCollapse(collapsed) {
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .main-content {
   flex: 1;
   padding: var(--space-6);
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  box-sizing: border-box;
   
   // 自定义滚动条
   &::-webkit-scrollbar {

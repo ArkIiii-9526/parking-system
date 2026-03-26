@@ -32,9 +32,8 @@ router.beforeEach(async (to, from, next) => {
         const { useUserStore } = userStore
         const store = useUserStore()
         
-        // 检查是否已经获取过用户信息，而不是依赖roles的长度
-        // 因为API可能只返回菜单数据（数组格式），此时roles会是空数组
-        if (store.menus && store.menus.length > 0) {
+        // 仅有菜单缓存不够，按钮权限需要显式加载完成后才能安全跳过初始化
+        if (store.menus && store.menus.length > 0 && store.permissionsLoaded) {
           if (!checkRoutePermission(to)) {
             ElMessage.warning('无权限访问该页面')
             next({ path: '/404' })

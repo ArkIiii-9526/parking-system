@@ -230,8 +230,16 @@ async function loadData() {
       status: filterForm.status
     })
     if (res.code === 200) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      const list = res.data.records || res.data || []
+      pagination.total = res.data.total !== undefined ? res.data.total : list.length
+      
+      if (!res.data.records && Array.isArray(res.data)) {
+        const start = (pagination.pageNo - 1) * pagination.pageSize
+        const end = start + pagination.pageSize
+        tableData.value = list.slice(start, end)
+      } else {
+        tableData.value = list
+      }
     }
   } catch (error) {
     console.error('加载数据失败:', error)

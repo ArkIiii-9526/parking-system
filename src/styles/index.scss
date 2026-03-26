@@ -95,6 +95,13 @@
   --text-muted: #64748B;
   --text-inverse: #FFFFFF;
 
+  // 映射 Element Plus 原生文本颜色变量
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-text-color-secondary: var(--text-tertiary);
+  --el-text-color-placeholder: var(--text-muted);
+  --el-text-color-disabled: var(--text-muted);
+
   --border-subtle: rgba(0, 0, 0, 0.05);
   --border-default: rgba(0, 0, 0, 0.1);
   --border-prominent: rgba(0, 0, 0, 0.2);
@@ -1360,7 +1367,8 @@ body {
 
 // el-select 下拉菜单深色模式
 .el-select {
-  .el-input__wrapper {
+  .el-input__wrapper,
+  .el-select__wrapper {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     box-shadow: none;
@@ -1369,15 +1377,24 @@ body {
       border-color: var(--glass-border-hover);
     }
     
-    &.is-focus {
+    &.is-focus,
+    &.is-focused {
       border-color: var(--border-focus);
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
     }
     
-    .el-input__inner {
+    .el-input__inner,
+    .el-select__selected-item {
       color: var(--text-primary);
       
       &::placeholder {
+        color: var(--text-muted);
+      }
+    }
+
+    .el-select__placeholder {
+      color: var(--text-muted);
+      &.is-transparent {
         color: var(--text-muted);
       }
     }
@@ -1559,11 +1576,23 @@ body {
 // el-form 表单深色模式
 .el-form {
   .el-form-item__label {
-    color: var(--text-secondary);
+    color: var(--text-secondary) !important;
   }
   
   .el-form-item__error {
     color: var(--accent-400);
+  }
+}
+
+// 确保 Tabs 在暗色模式下文字可见
+.el-tabs {
+  .el-tabs__item {
+    color: var(--text-secondary) !important;
+    font-weight: var(--font-medium);
+    
+    &.is-active, &:hover {
+      color: var(--text-primary) !important;
+    }
   }
 }
 
@@ -1745,6 +1774,29 @@ body {
   
   .el-table__empty-text {
     color: var(--text-muted);
+  }
+
+  // 修复固定列正文透明导致下层内容透出的情况
+  th.el-table__cell.el-table-fixed-column--left,
+  th.el-table__cell.el-table-fixed-column--right,
+  td.el-table__cell.el-table-fixed-column--left,
+  td.el-table__cell.el-table-fixed-column--right,
+  .el-table__fixed-right-patch {
+    background: var(--bg-secondary) !important;
+    background-color: var(--bg-secondary) !important;
+    background-image: none !important;
+  }
+
+  .el-table__body tr:hover > td.el-table__cell.el-table-fixed-column--left,
+  .el-table__body tr:hover > td.el-table__cell.el-table-fixed-column--right {
+    background: var(--bg-tertiary) !important;
+    background-color: var(--bg-tertiary) !important;
+  }
+
+  &.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell.el-table-fixed-column--left,
+  &.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell.el-table-fixed-column--right {
+    background: var(--bg-secondary) !important;
+    background-color: var(--bg-secondary) !important;
   }
 
   &.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {

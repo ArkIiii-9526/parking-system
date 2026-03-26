@@ -127,8 +127,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getRoleList, createRole, updateRole, deleteRole, getRolePermissionTree, bindRolePermission } from '@/api/role'
+import { getRoleList, createRole, updateRole, deleteRole, getRolePermissions, bindRolePermission } from '@/api/role'
 import { getPermissionTree } from '@/api/permission'
+import { buildRolePayload, normalizePermissionTree, normalizeRole } from '@/utils/system-manage'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -169,7 +170,7 @@ const formRules = {
   ],
   code: [
     { required: true, message: '请输入角色编码', trigger: 'blur' },
-    { pattern: /^[a-zA-Z]+$/, message: '角色编码只能包含英文字母', trigger: 'blur' }
+    { pattern: /^[a-zA-Z][a-zA-Z0-9_]*$/, message: '角色编码只能包含字母、数字和下划线，且需以字母开头', trigger: 'blur' }
   ]
 }
 
@@ -187,8 +188,17 @@ async function loadData() {
       name: filterForm.name
     })
     if (res.code === 200) {
-      tableData.value = res.data.records || []
-      pagination.total = res.data.total || 0
+      const list = res.data.records || res.data || []
+      pagination.total = res.data.total !== undefined ? res.data.total : list.length
+      const normalizedList = list.map(item => normalizeRole(item))
+      
+      if (!res.data.records && Array.isArray(res.data)) {
+        const start = (pagination.pageNo - 1) * pagination.pageSize
+        const end = start + pagination.pageSize
+        tableData.value = normalizedList.slice(start, end)
+      } else {
+        tableData.value = normalizedList
+      }
     }
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -202,7 +212,7 @@ async function loadPermissionTree() {
   try {
     const res = await getPermissionTree()
     if (res.code === 200) {
-      permissionTree.value = res.data || []
+      permissionTree.value = normalizePermissionTree(res.data || [])
     }
   } catch (error) {
     console.error('加载权限树失败:', error)
@@ -231,28 +241,28 @@ function handleCurrentChange(page) {
 
 function handleAdd() {
   dialogType.value = 'add'
-  Object.keys(formData).forEach(key => {
-    if (key === 'status') {
-      formData[key] = 1
-    } else if (key === 'description') {
-      formData[key] = ''
-    } else {
-      formData[key] = null
-    }
+  Object.assign(formData, {
+    id: null,
+    name: '',
+    code: '',
+    description: '',
+    status: 1,
+    parentId: 0,
+    dataScope: 'ALL'
   })
   dialogVisible.value = true
 }
 
 function handleEdit(row) {
   dialogType.value = 'edit'
-  Object.assign(formData, row)
+  Object.assign(formData, normalizeRole(row))
   dialogVisible.value = true
 }
 
 async function handlePermission(row) {
   currentRole.value = row
   try {
-    const res = await getRolePermissionTree(row.id)
+    const res = await getRolePermissions(row.id)
     if (res.code === 200) {
       checkedPermissions.value = res.data || []
     }
@@ -315,9 +325,10 @@ async function handleSubmit() {
   try {
     await formRef.value.validate()
     submitLoading.value = true
+    const payload = buildRolePayload(formData)
     
     if (dialogType.value === 'add') {
-      const res = await createRole(formData)
+      const res = await createRole(payload)
       if (res.code === 200) {
         ElMessage.success('新增成功')
         dialogVisible.value = false
@@ -326,7 +337,7 @@ async function handleSubmit() {
         ElMessage.error(res.msg || '新增失败')
       }
     } else {
-      const res = await updateRole(formData)
+      const res = await updateRole(payload)
       if (res.code === 200) {
         ElMessage.success('更新成功')
         dialogVisible.value = false

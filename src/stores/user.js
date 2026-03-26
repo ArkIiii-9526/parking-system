@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getUserInfo as getLocalUserInfo, setUserInfo, clearAll } from '@/utils/token'
 import { login, getUserInfo, logout } from '@/api/login'
+import { getUserPermissions } from '@/api/user'
 import router, { resetRouter } from '@/router'
 import { resetAnalyticsExportFormatsCache } from '@/utils/analyticsExportFormats'
 
@@ -29,63 +30,118 @@ function convertMenusToRouteFormat(menuList) {
   })
 }
 
+function extractPermissionCodes(items) {
+  if (!Array.isArray(items)) return []
+
+  const permissions = []
+  items.forEach((item) => {
+    if (item.permissionCode) {
+      permissions.push(item.permissionCode)
+    }
+    if (item.children?.length) {
+      permissions.push(...extractPermissionCodes(item.children))
+    }
+  })
+
+  return permissions
+}
+
+function parseTokenPayload(token) {
+  if (!token) return null
+
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const decoded = atob(normalized.padEnd(normalized.length + (4 - normalized.length % 4) % 4, '='))
+    return JSON.parse(decoded)
+  } catch (error) {
+    console.warn('解析 token 失败:', error)
+    return null
+  }
+}
+
 export const useUserStore = defineStore('user', () => {
-  const user = ref(getLocalUserInfo())
+  const cachedUserInfo = getLocalUserInfo()
+  const user = ref(cachedUserInfo?.user || cachedUserInfo || null)
   const token = ref(localStorage.getItem('parking_token') || '')
-  const roles = ref(user.value?.roles || [])
-  const permissions = ref(user.value?.permissions || [])
-  const menus = ref([])
+  const roles = ref(cachedUserInfo?.roles || [])
+  const permissions = ref(cachedUserInfo?.permissions || [])
+  const menus = ref(cachedUserInfo?.menus || [])
+  const permissionsLoaded = ref(Boolean(cachedUserInfo?.permissionsLoaded))
 
   const isLoggedIn = computed(() => !!token.value)
   const userName = computed(() => user.value?.username || '')
   const avatar = computed(() => user.value?.avatar || '')
 
+  function getCurrentUserId() {
+    if (user.value?.userId != null || user.value?.id != null) {
+      return user.value?.userId ?? user.value?.id
+    }
+
+    const payload = parseTokenPayload(token.value)
+    if (payload?.userId != null) {
+      user.value = {
+        ...(user.value || {}),
+        userId: payload.userId,
+        username: payload.username || user.value?.username || '',
+        nickname: payload.nickname || user.value?.nickname || ''
+      }
+      return payload.userId
+    }
+
+    return null
+  }
+
+  function persistUserState() {
+    setUserInfo({
+      user: user.value,
+      roles: roles.value,
+      permissions: permissions.value,
+      menus: menus.value,
+      permissionsLoaded: permissionsLoaded.value
+    })
+  }
+
   async function getUserInfoAction() {
     try {
       const res = await getUserInfo()
       if (res.code === 200) {
+        permissionsLoaded.value = false
+        let permissionsFromApi = []
+
+        if (getCurrentUserId() != null) {
+          try {
+            const permissionRes = await getUserPermissions(getCurrentUserId())
+            if (permissionRes.code === 200 && Array.isArray(permissionRes.data)) {
+              permissionsFromApi = permissionRes.data
+              permissionsLoaded.value = true
+            }
+          } catch (permissionError) {
+            console.warn('加载用户权限列表失败，将回退到菜单权限:', permissionError)
+          }
+        }
+
         // 检查res.data是否是数组（菜单数据直接返回数组的情况）
         if (Array.isArray(res.data)) {
           // 如果是数组，说明直接返回了菜单数据，需要转换格式
           menus.value = convertMenusToRouteFormat(res.data) || []
-          // 从菜单数据中提取权限编码
-          const extractPermissions = (items) => {
-            const perms = []
-            items.forEach(item => {
-              if (item.permissionCode) {
-                perms.push(item.permissionCode)
-              }
-              if (item.children && item.children.length > 0) {
-                perms.push(...extractPermissions(item.children))
-              }
-            })
-            return perms
-          }
-          permissions.value = extractPermissions(res.data)
+          const permissionsFromMenus = extractPermissionCodes(res.data)
+          permissions.value = [...new Set([...permissionsFromApi, ...permissionsFromMenus])]
         } else {
           // 否则按正常格式处理
-          user.value = res.data.user
+          user.value = res.data.user || user.value
           roles.value = res.data.roles || []
-          const extractPermissions = (items) => {
-            if (!Array.isArray(items)) return []
-            const perms = []
-            items.forEach((item) => {
-              if (item.permissionCode) perms.push(item.permissionCode)
-              if (item.children?.length) perms.push(...extractPermissions(item.children))
-            })
-            return perms
-          }
-          const fromMenus = extractPermissions(res.data.menus || [])
+          const fromMenus = extractPermissionCodes(res.data.menus || [])
           const fromApi = res.data.permissions || []
-          permissions.value = [...new Set([...fromApi, ...fromMenus])]
+          permissions.value = [...new Set([...permissionsFromApi, ...fromApi, ...fromMenus])]
+          if (Array.isArray(res.data.permissions)) {
+            permissionsLoaded.value = true
+          }
           menus.value = convertMenusToRouteFormat(res.data.menus) || []
         }
-        setUserInfo({
-          user: user.value,
-          roles: roles.value,
-          permissions: permissions.value,
-          menus: menus.value
-        })
+        persistUserState()
         return res.data
       }
       throw new Error(res.msg || '获取用户信息失败')
@@ -100,10 +156,16 @@ export const useUserStore = defineStore('user', () => {
       const res = await login(loginData)
       if (res.code === 200) {
         token.value = res.data.token
+        user.value = res.data.user || null
+        roles.value = []
+        permissions.value = []
+        menus.value = []
+        permissionsLoaded.value = false
         localStorage.setItem('parking_token', res.data.token)
         if (res.data.refreshToken) {
           localStorage.setItem('parking_refresh_token', res.data.refreshToken)
         }
+        persistUserState()
         return res.data
       }
       throw new Error(res.msg || '登录失败')
@@ -131,6 +193,7 @@ export const useUserStore = defineStore('user', () => {
     roles.value = []
     permissions.value = []
     menus.value = []
+    permissionsLoaded.value = false
     resetAnalyticsExportFormatsCache()
     clearAll()
   }
@@ -141,6 +204,7 @@ export const useUserStore = defineStore('user', () => {
     roles,
     permissions,
     menus,
+    permissionsLoaded,
     isLoggedIn,
     userName,
     avatar,

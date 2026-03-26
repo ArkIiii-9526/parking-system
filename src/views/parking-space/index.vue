@@ -121,7 +121,10 @@
         :style="{ animationDelay: `${index * 30}ms` }"
       >
         <div class="space-header">
-          <span class="space-code">{{ space.spaceCode }}</span>
+          <div class="space-code-wrapper">
+            <el-icon class="header-icon"><Location /></el-icon>
+            <span class="space-code">{{ space.spaceCode || space.spaceNumber || space.code || space.name || '未知车位' }}</span>
+          </div>
           <div class="space-type-badge" :class="getTypeClass(space.spaceType)">
             {{ getTypeText(space.spaceType) }}
           </div>
@@ -139,11 +142,11 @@
         <div class="space-info">
           <div class="info-item">
             <el-icon><OfficeBuilding /></el-icon>
-            <span>{{ space.floor }}</span>
+            <span>{{ space.floor || space.level || '未知楼层' }}</span>
           </div>
           <div class="info-item">
             <el-icon><MapLocation /></el-icon>
-            <span>{{ space.area }}</span>
+            <span>{{ space.area || space.zone || space.region || '未知区域' }}</span>
           </div>
         </div>
 
@@ -804,20 +807,31 @@ onMounted(() => {
     :deep(.el-select) {
       width: 100%;
 
-      .el-input__wrapper {
+      .el-input__wrapper,
+      .el-select__wrapper {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: var(--radius-md);
         box-shadow: none;
         padding: var(--space-2) var(--space-3);
-        height: 40px;
+        min-height: 40px;
 
-        .el-input__inner {
+        .el-input__inner,
+        .el-select__selected-item {
           color: var(--text-primary);
           font-size: var(--text-sm);
         }
 
-        .el-input__icon {
+        .el-select__placeholder {
+          color: var(--text-muted);
+          font-size: var(--text-sm);
+          &.is-transparent {
+            color: var(--text-muted);
+          }
+        }
+
+        .el-input__icon,
+        .el-select__icon {
           color: var(--text-muted);
         }
 
@@ -825,14 +839,11 @@ onMounted(() => {
           border-color: rgba(255, 255, 255, 0.2);
         }
 
-        &.is-focus {
+        &.is-focus,
+        &.is-focused {
           border-color: var(--border-focus);
           box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
-      }
-
-      .el-select__placeholder {
-        color: var(--text-muted);
       }
 
       .status-dot {
@@ -1004,11 +1015,22 @@ onMounted(() => {
     justify-content: space-between;
     margin-bottom: var(--space-3);
 
-    .space-code {
-      font-family: var(--font-display);
-      font-size: var(--text-lg);
-      font-weight: var(--font-bold);
-      color: var(--text-primary);
+    .space-code-wrapper {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      
+      .header-icon {
+        font-size: 16px;
+        color: var(--primary-400);
+      }
+      
+      .space-code {
+        font-family: var(--font-display);
+        font-size: var(--text-lg);
+        font-weight: var(--font-bold);
+        color: var(--text-primary);
+      }
     }
 
     .space-type-badge {
@@ -1196,12 +1218,14 @@ onMounted(() => {
   :deep(.el-pagination) {
     .el-pagination__sizes {
       .el-select {
-        .el-input__wrapper {
+        .el-input__wrapper,
+        .el-select__wrapper {
           background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.1);
           box-shadow: none;
 
-          .el-input__inner {
+          .el-input__inner,
+          .el-select__selected-item {
             color: var(--text-primary);
           }
         }
@@ -1282,7 +1306,8 @@ onMounted(() => {
   :deep(.el-select) {
     width: 100%;
 
-    .el-input__wrapper {
+    .el-input__wrapper,
+    .el-select__wrapper {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       box-shadow: none;

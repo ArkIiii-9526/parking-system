@@ -696,6 +696,7 @@ onMounted(async () => {
   }
 
   :deep(.el-input__wrapper),
+  :deep(.el-select__wrapper),
   :deep(.el-date-editor.el-input__wrapper) {
     background: rgba(255, 255, 255, 0.06);
     box-shadow: 0 0 0 1px var(--glass-border) inset;

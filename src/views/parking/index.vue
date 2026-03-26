@@ -1123,12 +1123,14 @@ onMounted(() => {
   :deep(.el-pagination) {
     .el-pagination__sizes {
       .el-select {
-        .el-input__wrapper {
+        .el-input__wrapper,
+        .el-select__wrapper {
           background: var(--glass-bg);
           border: 1px solid var(--glass-border);
           box-shadow: none;
 
-          .el-input__inner {
+          .el-input__inner,
+          .el-select__selected-item {
             color: var(--text-primary);
           }
         }
