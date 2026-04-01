@@ -1,5 +1,20 @@
 import request from '@/utils/request'
 
+export function getCaptcha() {
+  return request({
+    url: '/auth/captcha',
+    method: 'get'
+  })
+}
+
+export function register(data) {
+  return request({
+    url: '/auth/register',
+    method: 'post',
+    data
+  })
+}
+
 export function login(data) {
   return request({
     url: '/auth/login',

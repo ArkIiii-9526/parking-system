@@ -311,7 +311,10 @@ async function loadData() {
     }
   } catch (error) {
     console.error('加载数据失败:', error)
-    ElMessage.error('加载数据失败')
+    console.error('错误详情:', error.response?.data || error.message)
+    console.error('请求 URL:', error.config?.url)
+    console.error('HTTP 状态:', error.response?.status)
+    ElMessage.error(`加载数据失败：${error.response?.data?.msg || error.message}`)
   } finally {
     loading.value = false
   }
@@ -402,9 +405,16 @@ function updateCharts() {
       trigger: 'axis',
       axisPointer: { type: 'shadow' }
     },
+    legend: {
+      data: ['收入'],
+      textStyle: { color: theme.textSecondary },
+      top: 0,
+      right: 16
+    },
     grid: {
       left: '3%',
       right: '4%',
+      top: 40,
       bottom: '3%',
       containLabel: true
     },
@@ -440,11 +450,14 @@ function updateCharts() {
     },
     legend: {
       data: ['入场', '出场'],
-      textStyle: { color: theme.textSecondary }
+      textStyle: { color: theme.textSecondary },
+      top: 0,
+      right: 16
     },
     grid: {
       left: '3%',
       right: '4%',
+      top: 40,
       bottom: '3%',
       containLabel: true
     },

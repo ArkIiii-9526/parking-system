@@ -106,26 +106,30 @@ service.interceptors.response.use(
   (error) => {
     if (error.response) {
       const { status, data } = error.response
+      const errMsg = data.msg || data.message || '请求失败'
       switch (status) {
+        case 400:
+          ElMessage.error({ message: `参数错误: ${errMsg}，请检查后重试`, duration: 5000 })
+          break
         case 401:
           clearAll()
           router.push('/login')
-          ElMessage.error('登录已过期，请重新登录')
+          ElMessage.error({ message: '登录已过期，请重新登录', duration: 3000 })
           break
         case 403:
-          ElMessage.error('没有权限访问')
+          ElMessage.error({ message: '没有权限访问该资源，请联系管理员分配权限', duration: 5000 })
           break
         case 404:
-          ElMessage.error('请求的资源不存在')
+          ElMessage.error({ message: '请求的资源不存在，可能已被删除', duration: 5000 })
           break
         case 500:
-          ElMessage.error(data.msg || '服务器错误')
+          ElMessage.error({ message: `服务器开小差了: ${errMsg}，请稍后重试或联系技术支持`, duration: 5000 })
           break
         default:
-          ElMessage.error(data.msg || '网络错误')
+          ElMessage.error({ message: `网络异常 (${status}): ${errMsg}`, duration: 5000 })
       }
-    } else if (error.code === 'ECONNABORTED') {
-      ElMessage.error('请求超时，请稍后重试')
+    } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      ElMessage.warning({ message: '请求超时，请检查网络状况后刷新页面重试', duration: 5000 })
     } else {
       if (error.code === 'ERR_NETWORK') {
         console.error('网络连接失败，请检查：')
@@ -133,7 +137,7 @@ service.interceptors.response.use(
         console.error('- 代理配置是否正确')
         console.error('- 网络是否通畅')
       }
-      ElMessage.error('网络连接失败，请检查网络')
+      ElMessage.error({ message: '网络连接失败，请检查本地网络或联系管理员', duration: 5000 })
     }
     return Promise.reject(error)
   }

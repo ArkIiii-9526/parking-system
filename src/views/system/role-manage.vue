@@ -125,7 +125,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getRoleList, createRole, updateRole, deleteRole, getRolePermissions, bindRolePermission } from '@/api/role'
 import { getPermissionTree } from '@/api/permission'
@@ -265,11 +265,16 @@ async function handlePermission(row) {
     const res = await getRolePermissions(row.id)
     if (res.code === 200) {
       checkedPermissions.value = res.data || []
+      permissionDialogVisible.value = true
+      nextTick(() => {
+        if (permissionTreeRef.value) {
+          permissionTreeRef.value.setCheckedKeys(checkedPermissions.value)
+        }
+      })
     }
   } catch (_) {
     ElMessage.error('获取权限失败')
   }
-  permissionDialogVisible.value = true
 }
 
 function handleTreeCheck() {

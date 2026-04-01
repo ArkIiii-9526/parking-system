@@ -200,6 +200,13 @@
           </el-form-item>
         </div>
 
+        <el-form-item label="地图选点">
+          <div class="map-wrapper" style="width: 100%;">
+            <div id="mapContainer" style="width: 100%; height: 240px; border-radius: 8px; border: 1px solid var(--glass-border); overflow: hidden; position: relative;"></div>
+            <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">点击地图快速获取经纬度及详细地址</div>
+          </div>
+        </el-form-item>
+
         <el-form-item label="车位数量" prop="totalSpaces">
           <div class="form-input-wrapper">
             <el-icon><Grid /></el-icon>
@@ -310,9 +317,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AMapLoader from '@amap/amap-jsapi-loader'
 import {
   getParkingPage,
   createParking,
@@ -333,6 +341,11 @@ const formRef = ref(null)
 const animated = ref(false)
 const currentParking = ref(null)
 const parkingApiStats = ref(null)
+
+// 地图实例
+const mapInstance = ref(null)
+const markerInstance = ref(null)
+let AMapObj = null
 
 const nearbyForm = reactive({ longitude: '', latitude: '' })
 const nearbyLoading = ref(false)
@@ -388,8 +401,11 @@ function getUsageClass(item) {
 }
 
 function formatCoordinate(lng, lat) {
-  if (!lng || !lat) return '未设置'
-  return `${lng.toFixed(6)}, ${lat.toFixed(6)}`
+  if (lng === null || lng === undefined || lat === null || lat === undefined) return '未设置'
+  const nLng = Number(lng)
+  const nLat = Number(lat)
+  if (isNaN(nLng) || isNaN(nLat)) return '未设置'
+  return `${nLng.toFixed(6)}, ${nLat.toFixed(6)}`
 }
 
 function viewSpaces(item) {
@@ -465,6 +481,57 @@ function handleCurrentChange(page) {
   loadData()
 }
 
+function initMap() {
+  window._AMapSecurityConfig = {
+    securityJsCode: 'your_amap_security_code' // 请替换为您的安全密钥，或使用代理
+  }
+  AMapLoader.load({
+    key: 'f0c0b89a815a019483320f7823f6d71b', // 这是一个测试key，建议替换为自己的
+    version: '2.0',
+    plugins: ['AMap.Geocoder']
+  }).then((AMap) => {
+    AMapObj = AMap
+    mapInstance.value = new AMap.Map('mapContainer', {
+      zoom: 15,
+      center: formData.longitude && formData.latitude 
+        ? [formData.longitude, formData.latitude] 
+        : [116.397428, 39.90923]
+    })
+
+    if (formData.longitude && formData.latitude) {
+      markerInstance.value = new AMap.Marker({
+        position: [formData.longitude, formData.latitude],
+        map: mapInstance.value
+      })
+    }
+
+    mapInstance.value.on('click', (e) => {
+      const lng = e.lnglat.getLng()
+      const lat = e.lnglat.getLat()
+      formData.longitude = lng
+      formData.latitude = lat
+
+      if (markerInstance.value) {
+        markerInstance.value.setPosition([lng, lat])
+      } else {
+        markerInstance.value = new AMap.Marker({
+          position: [lng, lat],
+          map: mapInstance.value
+        })
+      }
+
+      const geocoder = new AMap.Geocoder({ city: '全国' })
+      geocoder.getAddress([lng, lat], (status, result) => {
+        if (status === 'complete' && result.regeocode) {
+          formData.address = result.regeocode.formattedAddress
+        }
+      })
+    })
+  }).catch((e) => {
+    console.error('地图加载失败', e)
+  })
+}
+
 function handleAdd() {
   dialogType.value = 'add'
   Object.keys(formData).forEach(key => {
@@ -477,6 +544,9 @@ function handleAdd() {
     }
   })
   dialogVisible.value = true
+  nextTick(() => {
+    initMap()
+  })
 }
 
 async function handleDetail(row) {
@@ -507,6 +577,9 @@ async function handleEdit(row) {
     if (res.code === 200) {
       Object.assign(formData, res.data)
       dialogVisible.value = true
+      nextTick(() => {
+        initMap()
+      })
     }
   } catch (_) {
     ElMessage.error('获取详情失败')

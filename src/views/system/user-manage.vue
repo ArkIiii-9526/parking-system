@@ -352,19 +352,19 @@ async function handleRoleSubmit() {
 }
 
 async function handleStatusChange(row) {
+  const newStatus = row.status === 1 ? 0 : 1
   try {
     const res = await updateUserStatus({
       userId: row.userId,
-      status: row.status === 1 ? 0 : 1
+      status: newStatus
     })
     if (res.code === 200) {
+      row.status = newStatus
       ElMessage.success('状态更新成功')
     } else {
-      row.status = row.status === 1 ? 0 : 1
       ElMessage.error(res.msg || '状态更新失败')
     }
   } catch (_) {
-    row.status = row.status === 1 ? 0 : 1
     ElMessage.error('状态更新失败')
   }
 }

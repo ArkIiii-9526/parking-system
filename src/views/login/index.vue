@@ -36,8 +36,9 @@
           <p class="brand-subtitle">Smart Parking System</p>
         </div>
         
-        <!-- 登录表单 -->
+        <!-- 登录/注册表单 -->
         <el-form
+          v-if="isLogin"
           ref="loginFormRef"
           :model="loginForm"
           :rules="loginRules"
@@ -75,7 +76,11 @@
             <el-checkbox v-model="rememberMe" class="remember-me">
               <span class="checkbox-label">记住我</span>
             </el-checkbox>
-            <a href="#" class="forgot-link">忘记密码?</a>
+            <div class="right-links">
+              <a href="#" class="action-link" @click.prevent="toggleForm">注册账号</a>
+              <span class="divider">|</span>
+              <a href="#" class="action-link">忘记密码?</a>
+            </div>
           </div>
           
           <el-form-item>
@@ -97,6 +102,111 @@
             </button>
           </el-form-item>
         </el-form>
+
+        <el-form
+          v-else
+          ref="registerFormRef"
+          :model="registerForm"
+          :rules="registerRules"
+          class="login-form"
+        >
+          <el-form-item prop="username">
+            <div class="input-wrapper" :class="{ 'is-focus': focusedField === 'reg-username' }">
+              <el-icon class="input-icon"><User /></el-icon>
+              <el-input
+                v-model="registerForm.username"
+                placeholder="请输入用户名"
+                clearable
+                @focus="focusedField = 'reg-username'"
+                @blur="focusedField = ''"
+              />
+            </div>
+          </el-form-item>
+
+          <el-form-item prop="email">
+            <div class="input-wrapper" :class="{ 'is-focus': focusedField === 'reg-email' }">
+              <el-icon class="input-icon"><Message /></el-icon>
+              <el-input
+                v-model="registerForm.email"
+                placeholder="请输入邮箱"
+                clearable
+                @focus="focusedField = 'reg-email'"
+                @blur="focusedField = ''"
+              />
+            </div>
+          </el-form-item>
+          
+          <el-form-item prop="password">
+            <div class="input-wrapper" :class="{ 'is-focus': focusedField === 'reg-password' }">
+              <el-icon class="input-icon"><Lock /></el-icon>
+              <el-input
+                v-model="registerForm.password"
+                type="password"
+                placeholder="请输入密码"
+                show-password
+                @focus="focusedField = 'reg-password'"
+                @blur="focusedField = ''"
+              />
+            </div>
+          </el-form-item>
+
+          <el-form-item prop="confirmPassword">
+            <div class="input-wrapper" :class="{ 'is-focus': focusedField === 'reg-confirmPassword' }">
+              <el-icon class="input-icon"><Lock /></el-icon>
+              <el-input
+                v-model="registerForm.confirmPassword"
+                type="password"
+                placeholder="请确认密码"
+                show-password
+                @focus="focusedField = 'reg-confirmPassword'"
+                @blur="focusedField = ''"
+              />
+            </div>
+          </el-form-item>
+
+          <el-form-item prop="captcha">
+            <div class="captcha-container">
+              <div class="input-wrapper" :class="{ 'is-focus': focusedField === 'reg-captcha' }">
+                <el-icon class="input-icon"><Key /></el-icon>
+                <el-input
+                  v-model="registerForm.captcha"
+                  placeholder="验证码"
+                  clearable
+                  @focus="focusedField = 'reg-captcha'"
+                  @blur="focusedField = ''"
+                  @keyup.enter="handleRegister"
+                />
+              </div>
+              <div class="captcha-img" @click="fetchCaptcha">
+                <img v-if="captchaImg" :src="captchaImg" alt="验证码" />
+                <span v-else>加载中</span>
+              </div>
+            </div>
+          </el-form-item>
+          
+          <div class="form-options">
+            <a href="#" class="action-link" @click.prevent="toggleForm">已有账号？返回登录</a>
+          </div>
+          
+          <el-form-item>
+            <button 
+              type="button"
+              class="login-btn"
+              :class="{ 'is-loading': loading }"
+              :disabled="loading"
+              @click="handleRegister"
+            >
+              <span v-if="!loading" class="btn-content">
+                <span>注册账号</span>
+                <el-icon class="btn-icon"><ArrowRight /></el-icon>
+              </span>
+              <span v-else class="btn-loading">
+                <span class="loading-spinner"></span>
+                <span>提交中...</span>
+              </span>
+            </button>
+          </el-form-item>
+        </el-form>
         
         <!-- 底部信息 -->
         <div class="login-footer">
@@ -112,20 +222,33 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { getCaptcha, register } from '@/api/login'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
 const loginFormRef = ref(null)
+const registerFormRef = ref(null)
 const loading = ref(false)
 const isVisible = ref(false)
 const focusedField = ref('')
 const rememberMe = ref(false)
+const isLogin = ref(true)
+const captchaImg = ref('')
+const captchaUuid = ref('')
 
 const loginForm = reactive({
   username: '',
   password: ''
+})
+
+const registerForm = reactive({
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  captcha: ''
 })
 
 const loginRules = {
@@ -137,6 +260,55 @@ const loginRules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 20, message: '密码长度在6-20个字符之间', trigger: 'blur' }
   ]
+}
+
+const validatePass2 = (rule, value, callback) => {
+  if (value === '') {
+    callback(new Error('请再次输入密码'))
+  } else if (value !== registerForm.password) {
+    callback(new Error('两次输入密码不一致!'))
+  } else {
+    callback()
+  }
+}
+
+const registerRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, max: 20, message: '用户名长度在2-20个字符之间', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: ['blur', 'change'] }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度在6-20个字符之间', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, validator: validatePass2, trigger: 'blur' }
+  ],
+  captcha: [
+    { required: true, message: '请输入验证码', trigger: 'blur' }
+  ]
+}
+
+function toggleForm() {
+  isLogin.value = !isLogin.value
+  focusedField.value = ''
+  if (!isLogin.value) {
+    fetchCaptcha()
+  }
+}
+
+async function fetchCaptcha() {
+  try {
+    const res = await getCaptcha()
+    captchaImg.value = res.data.img
+    captchaUuid.value = res.data.uuid
+  } catch (error) {
+    ElMessage.error('获取验证码失败')
+  }
 }
 
 // 生成粒子样式
@@ -176,6 +348,33 @@ async function handleLogin() {
       type: 'error',
       plain: true
     })
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleRegister() {
+  const valid = await registerFormRef.value.validate().catch(() => false)
+  if (!valid) return
+  
+  loading.value = true
+  try {
+    await register({
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password,
+      confirmPassword: registerForm.confirmPassword,
+      captcha: registerForm.captcha,
+      uuid: captchaUuid.value
+    })
+    ElMessage.success({
+      message: '注册成功，请登录！',
+      type: 'success',
+      plain: true
+    })
+    toggleForm()
+  } catch (error) {
+    fetchCaptcha() // 刷新验证码
   } finally {
     loading.value = false
   }
@@ -460,7 +659,18 @@ onMounted(() => {
       }
     }
     
-    .forgot-link {
+    .right-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .divider {
+      color: var(--text-muted);
+      font-size: var(--text-xs);
+    }
+
+    .action-link, .forgot-link {
       font-size: var(--text-sm);
       color: var(--primary-400);
       text-decoration: none;
@@ -469,6 +679,40 @@ onMounted(() => {
       &:hover {
         color: var(--primary-300);
         text-decoration: underline;
+      }
+    }
+  }
+
+  .captcha-container {
+    display: flex;
+    gap: var(--space-3);
+    width: 100%;
+    
+    .input-wrapper {
+      flex: 1;
+    }
+    
+    .captcha-img {
+      width: 120px;
+      height: 38px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      span {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
       }
     }
   }

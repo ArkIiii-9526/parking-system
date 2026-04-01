@@ -134,8 +134,9 @@ function resolvePath(basePath, path) {
   if (path.startsWith('/')) {
     return path
   }
-  const absoluteBasePath = basePath.startsWith('/') ? basePath : `/${basePath}`
-  return `${absoluteBasePath}/${path}`
+  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+  const absoluteBasePath = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`
+  return `${absoluteBasePath}/${path}`.replace(/\/+/g, '/')
 }
 
 function updateMenus() {

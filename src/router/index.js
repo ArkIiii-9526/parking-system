@@ -189,7 +189,18 @@ export function resetRouter() {
     history: createWebHashHistory(),
     routes
   })
-  router.matcher = newRouter.matcher
+  
+  // Vue 3 (Vue Router 4) 中应使用 removeRoute 和 addRoute 重置路由
+  const currentRoutes = router.getRoutes()
+  currentRoutes.forEach(route => {
+    if (route.name) {
+      router.removeRoute(route.name)
+    }
+  })
+  
+  routes.forEach(route => {
+    router.addRoute(route)
+  })
 }
 
 export function filterAsyncRoutes(asyncRoutes, menus) {

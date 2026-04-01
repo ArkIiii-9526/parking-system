@@ -60,6 +60,8 @@ router.beforeEach(async (to, from, next) => {
         }
       } catch (error) {
         console.error('获取用户信息失败:', error)
+        const userStore = await import('@/stores/user')
+        userStore.useUserStore().logout()
         next(`/login?redirect=${to.path}`)
       }
     }

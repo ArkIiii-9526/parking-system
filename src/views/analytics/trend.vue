@@ -123,7 +123,7 @@
         </div>
       </div>
       <el-table
-        :data="trendList"
+        :data="trendData.trendList"
         stripe
         v-loading="loading"
         size="small"
@@ -131,14 +131,14 @@
         <el-table-column prop="date" label="日期" width="120" />
         <el-table-column prop="income" label="收入" width="120" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ row.income.toFixed(2) }}</span>
+            <span class="amount">¥{{ (row.income || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="vehicles" label="车流量" width="100" align="center" />
         <el-table-column prop="occupancy" label="平均占用率" width="120" align="center">
           <template #default="{ row }">
             <el-progress 
-              :percentage="row.occupancy" 
+              :percentage="row.occupancy || 0" 
               :color="getOccupancyColor"
               :stroke-width="6"
             />
@@ -156,7 +156,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50]"
-          :total="trendList.length"
+          :total="trendData.trendList?.length || 0"
           layout="total, sizes, prev, pager, next"
           size="small"
         />
@@ -297,339 +297,419 @@ function formatDuration(minutes) {
 
 // 初始化综合趋势图表
 function initComprehensiveChart() {
-  if (!comprehensiveChartRef.value) return
-  comprehensiveChart = ensureChartInstance(echarts, comprehensiveChartRef.value, comprehensiveChart)
-  const theme = getAnalyticsTheme()
-
-  const dates = trendData.value.incomeTrend?.map(item => item.date) || []
-
-  const series = []
-
-  if (selectedMetrics.value.includes('income')) {
-    series.push({
-      name: '收入',
-      type: 'line',
-      data: trendData.value.incomeTrend?.map(item => item.value) || [],
-      smooth: true,
-      yAxisIndex: 0,
-      lineStyle: { color: theme.secondary, width: 3 },
-      itemStyle: { color: theme.secondary },
-      areaStyle: {
-        color: createAreaGradient(theme.secondary)
-      }
-    })
+  if (!comprehensiveChartRef.value) {
+    console.warn('综合趋势图表容器不存在')
+    return
   }
+  
+  try {
+    comprehensiveChart = ensureChartInstance(echarts, comprehensiveChartRef.value, comprehensiveChart)
+    const theme = getAnalyticsTheme()
 
-  if (selectedMetrics.value.includes('vehicles')) {
-    series.push({
-      name: '车流量',
-      type: 'bar',
-      data: trendData.value.vehicleTrend?.map(item => item.value) || [],
-      yAxisIndex: 1,
-      itemStyle: {
-        color: createVerticalGradient(theme.primary, theme.primarySoft),
-        borderRadius: [4, 4, 0, 0]
+    const incomeTrend = trendData.value.incomeTrend || []
+    const vehicleTrend = trendData.value.vehicleTrend || []
+    const occupancyTrend = trendData.value.occupancyTrend || []
+    const turnoverTrend = trendData.value.turnoverTrend || []
+
+    const dates = incomeTrend.map(item => item?.date || '') || []
+
+    const series = []
+
+    if (selectedMetrics.value.includes('income')) {
+      series.push({
+        name: '收入',
+        type: 'line',
+        data: incomeTrend.map(item => item?.value ?? 0),
+        smooth: true,
+        yAxisIndex: 0,
+        lineStyle: { color: theme.secondary, width: 3 },
+        itemStyle: { color: theme.secondary },
+        areaStyle: {
+          color: createAreaGradient(theme.secondary)
+        }
+      })
+    }
+
+    if (selectedMetrics.value.includes('vehicles')) {
+      series.push({
+        name: '车流量',
+        type: 'bar',
+        data: vehicleTrend.map(item => item?.value ?? 0),
+        yAxisIndex: 1,
+        itemStyle: {
+          color: createVerticalGradient(theme.primary, theme.primarySoft),
+          borderRadius: [4, 4, 0, 0]
+        },
+        barWidth: '30%'
+      })
+    }
+
+    if (selectedMetrics.value.includes('occupancy')) {
+      series.push({
+        name: '占用率',
+        type: 'line',
+        data: occupancyTrend.map(item => item?.value ?? 0),
+        smooth: true,
+        yAxisIndex: 2,
+        lineStyle: { color: theme.warning, width: 2, type: 'dashed' },
+        itemStyle: { color: theme.warning }
+      })
+    }
+
+    if (selectedMetrics.value.includes('turnover')) {
+      series.push({
+        name: '周转率',
+        type: 'line',
+        data: turnoverTrend.map(item => item?.value ?? 0),
+        smooth: true,
+        yAxisIndex: 3,
+        lineStyle: { color: theme.accent, width: 2 },
+        itemStyle: { color: theme.accent }
+      })
+    }
+    
+    const yAxis = []
+    if (selectedMetrics.value.includes('income')) {
+      yAxis.push({
+        type: 'value',
+        name: '收入 (¥)',
+        position: 'left',
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: theme.splitLine } },
+        axisLabel: { color: theme.textSecondary }
+      })
+    }
+    if (selectedMetrics.value.includes('vehicles')) {
+      yAxis.push({
+        type: 'value',
+        name: '车流量',
+        position: selectedMetrics.value.includes('income') ? 'right' : 'left',
+        axisLine: { show: false },
+        splitLine: { show: false },
+        axisLabel: { color: theme.textSecondary }
+      })
+    }
+    if (selectedMetrics.value.includes('occupancy')) {
+      yAxis.push({
+        type: 'value',
+        name: '占用率 (%)',
+        position: 'right',
+        axisLine: { show: false },
+        splitLine: { show: false },
+        axisLabel: { color: theme.textSecondary }
+      })
+    }
+    if (selectedMetrics.value.includes('turnover')) {
+      yAxis.push({
+        type: 'value',
+        name: '周转率',
+        position: 'right',
+        axisLine: { show: false },
+        splitLine: { show: false },
+        axisLabel: { color: theme.textSecondary }
+      })
+    }
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross' },
+        backgroundColor: theme.panel,
+        borderColor: theme.border,
+        textStyle: { color: theme.textPrimary }
       },
-      barWidth: '30%'
-    })
+      legend: {
+        data: series.map(s => s.name),
+        top: 0,
+        right: 16,
+        textStyle: { color: theme.textSecondary }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        top: 40,
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { lineStyle: { color: theme.axisLine } },
+        axisLabel: { color: theme.textSecondary }
+      },
+      yAxis,
+      series
+    }
+    
+    comprehensiveChart.setOption(option, true)
+  } catch (error) {
+    console.error('初始化综合趋势图表失败:', error)
   }
-
-  if (selectedMetrics.value.includes('occupancy')) {
-    series.push({
-      name: '占用率',
-      type: 'line',
-      data: trendData.value.occupancyTrend?.map(item => item.value) || [],
-      smooth: true,
-      yAxisIndex: 2,
-      lineStyle: { color: theme.warning, width: 2, type: 'dashed' },
-      itemStyle: { color: theme.warning }
-    })
-  }
-
-  if (selectedMetrics.value.includes('turnover')) {
-    series.push({
-      name: '周转率',
-      type: 'line',
-      data: trendData.value.turnoverTrend?.map(item => item.value) || [],
-      smooth: true,
-      yAxisIndex: 3,
-      lineStyle: { color: theme.accent, width: 2 },
-      itemStyle: { color: theme.accent }
-    })
-  }
-  
-  const yAxis = []
-  if (selectedMetrics.value.includes('income')) {
-    yAxis.push({
-      type: 'value',
-      name: '收入(¥)',
-      position: 'left',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: theme.splitLine } },
-      axisLabel: { color: theme.textSecondary }
-    })
-  }
-  if (selectedMetrics.value.includes('vehicles')) {
-    yAxis.push({
-      type: 'value',
-      name: '车流量',
-      position: selectedMetrics.value.includes('income') ? 'right' : 'left',
-      axisLine: { show: false },
-      splitLine: { show: false },
-      axisLabel: { color: theme.textSecondary }
-    })
-  }
-  if (selectedMetrics.value.includes('occupancy')) {
-    yAxis.push({
-      type: 'value',
-      name: '占用率(%)',
-      position: 'right',
-      axisLine: { show: false },
-      splitLine: { show: false },
-      axisLabel: { color: theme.textSecondary }
-    })
-  }
-  if (selectedMetrics.value.includes('turnover')) {
-    yAxis.push({
-      type: 'value',
-      name: '周转率',
-      position: 'right',
-      axisLine: { show: false },
-      splitLine: { show: false },
-      axisLabel: { color: theme.textSecondary }
-    })
-  }
-  
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' },
-      backgroundColor: theme.panel,
-      borderColor: theme.border,
-      textStyle: { color: theme.textPrimary }
-    },
-    legend: {
-      data: series.map(s => s.name),
-      bottom: 0,
-      textStyle: { color: theme.textSecondary }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '15%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: dates,
-      axisLine: { lineStyle: { color: theme.axisLine } },
-      axisLabel: { color: theme.textSecondary }
-    },
-    yAxis,
-    series
-  }
-  
-  comprehensiveChart.setOption(option, true)
 }
 
 // 初始化收入趋势图表
 function initIncomeChart() {
-  if (!incomeChartRef.value) return
-  incomeChart = ensureChartInstance(echarts, incomeChartRef.value, incomeChart)
-  const theme = getAnalyticsTheme()
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: '{b}: ¥{c}',
-      backgroundColor: theme.panel,
-      borderColor: theme.border,
-      textStyle: { color: theme.textPrimary }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: trendData.value.incomeTrend?.map(item => item.date) || [],
-      axisLine: { lineStyle: { color: theme.axisLine } },
-      axisLabel: { color: theme.textSecondary }
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: theme.splitLine } },
-      axisLabel: {
-        color: theme.textSecondary,
-        formatter: '¥{value}'
-      }
-    },
-    series: [{
-      data: trendData.value.incomeTrend?.map(item => item.value) || [],
-      type: 'line',
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 8,
-      lineStyle: {
-        color: theme.secondary,
-        width: 3
-      },
-      itemStyle: {
-        color: theme.secondary,
-        borderWidth: 2,
-        borderColor: theme.inverse
-      },
-      areaStyle: {
-        color: createAreaGradient(theme.secondary)
-      }
-    }]
+  if (!incomeChartRef.value) {
+    console.warn('收入趋势图表容器不存在')
+    return
   }
-  incomeChart.setOption(option)
+  
+  try {
+    incomeChart = ensureChartInstance(echarts, incomeChartRef.value, incomeChart)
+    const theme = getAnalyticsTheme()
+    const incomeTrend = trendData.value.incomeTrend || []
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: ¥{c}',
+        backgroundColor: theme.panel,
+        borderColor: theme.border,
+        textStyle: { color: theme.textPrimary }
+      },
+      legend: {
+        data: ['收入'],
+        top: 0,
+        right: 16,
+        textStyle: { color: theme.textSecondary }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        top: 40,
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: incomeTrend.map(item => item?.date || ''),
+        axisLine: { lineStyle: { color: theme.axisLine } },
+        axisLabel: { color: theme.textSecondary }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: theme.splitLine } },
+        axisLabel: {
+          color: theme.textSecondary,
+          formatter: '¥{value}'
+        }
+      },
+      series: [{
+        data: incomeTrend.map(item => item?.value ?? 0),
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: {
+          color: theme.secondary,
+          width: 3
+        },
+        itemStyle: {
+          color: theme.secondary,
+          borderWidth: 2,
+          borderColor: theme.inverse
+        },
+        areaStyle: {
+          color: createAreaGradient(theme.secondary)
+        }
+      }]
+    }
+    incomeChart.setOption(option)
+  } catch (error) {
+    console.error('初始化收入趋势图表失败:', error)
+  }
 }
 
 // 初始化车流量趋势图表
 function initVehicleChart() {
-  if (!vehicleChartRef.value) return
-  vehicleChart = ensureChartInstance(echarts, vehicleChartRef.value, vehicleChart)
-  const theme = getAnalyticsTheme()
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: '{b}: {c}辆',
-      backgroundColor: theme.panel,
-      borderColor: theme.border,
-      textStyle: { color: theme.textPrimary }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: trendData.value.vehicleTrend?.map(item => item.date) || [],
-      axisLine: { lineStyle: { color: theme.axisLine } },
-      axisLabel: { color: theme.textSecondary }
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: theme.splitLine } },
-      axisLabel: { color: theme.textSecondary }
-    },
-    series: [{
-      data: trendData.value.vehicleTrend?.map(item => item.value) || [],
-      type: 'bar',
-      itemStyle: {
-        color: createVerticalGradient(theme.primary, theme.primarySoft),
-        borderRadius: [4, 4, 0, 0]
-      },
-      barWidth: '50%'
-    }]
+  if (!vehicleChartRef.value) {
+    console.warn('车流量图表容器不存在')
+    return
   }
-  vehicleChart.setOption(option)
+  
+  try {
+    vehicleChart = ensureChartInstance(echarts, vehicleChartRef.value, vehicleChart)
+    const theme = getAnalyticsTheme()
+    const vehicleTrend = trendData.value.vehicleTrend || []
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: {c}辆',
+        backgroundColor: theme.panel,
+        borderColor: theme.border,
+        textStyle: { color: theme.textPrimary }
+      },
+      legend: {
+        data: ['车流量'],
+        top: 0,
+        right: 16,
+        textStyle: { color: theme.textSecondary }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        top: 40,
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: vehicleTrend.map(item => item?.date || ''),
+        axisLine: { lineStyle: { color: theme.axisLine } },
+        axisLabel: { color: theme.textSecondary }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: theme.splitLine } },
+        axisLabel: { color: theme.textSecondary }
+      },
+      series: [{
+        data: vehicleTrend.map(item => item?.value ?? 0),
+        type: 'bar',
+        itemStyle: {
+          color: createVerticalGradient(theme.primary, theme.primarySoft),
+          borderRadius: [4, 4, 0, 0]
+        },
+        barWidth: '50%'
+      }]
+    }
+    vehicleChart.setOption(option)
+  } catch (error) {
+    console.error('初始化车流量图表失败:', error)
+  }
 }
 
 // 初始化时段分析图表
 function initHourlyChart() {
-  if (!hourlyChartRef.value) return
-  hourlyChart = ensureChartInstance(echarts, hourlyChartRef.value, hourlyChart)
-  const theme = getAnalyticsTheme()
-  const data = trendData.value.hourlyData || []
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: '{b}: {c}%',
-      backgroundColor: theme.panel,
-      borderColor: theme.border,
-      textStyle: { color: theme.textPrimary }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: data.map(item => item.hour),
-      axisLine: { lineStyle: { color: theme.axisLine } },
-      axisLabel: { 
-        color: theme.textSecondary,
-        interval: 2
-      }
-    },
-    yAxis: {
-      type: 'value',
-      max: 100,
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: theme.splitLine } },
-      axisLabel: { 
-        color: theme.textSecondary,
-        formatter: '{value}%'
-      }
-    },
-    series: [{
-      data: data.map(item => item.occupancy),
-      type: 'line',
-      smooth: true,
-      symbol: 'none',
-      lineStyle: {
-        color: theme.warning,
-        width: 3
-      },
-      areaStyle: {
-        color: createAreaGradient(theme.warning)
-      }
-    }]
+  if (!hourlyChartRef.value) {
+    console.warn('时段分析图表容器不存在')
+    return
   }
-  hourlyChart.setOption(option)
+  
+  try {
+    hourlyChart = ensureChartInstance(echarts, hourlyChartRef.value, hourlyChart)
+    const theme = getAnalyticsTheme()
+    const hourlyData = trendData.value.hourlyData || []
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: {c}%',
+        backgroundColor: theme.panel,
+        borderColor: theme.border,
+        textStyle: { color: theme.textPrimary }
+      },
+      legend: {
+        data: ['占用率'],
+        top: 0,
+        right: 16,
+        textStyle: { color: theme.textSecondary }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        top: 40,
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: hourlyData.map(item => item?.hour || ''),
+        axisLine: { lineStyle: { color: theme.axisLine } },
+        axisLabel: { 
+          color: theme.textSecondary,
+          interval: 2
+        }
+      },
+      yAxis: {
+        type: 'value',
+        max: 100,
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: theme.splitLine } },
+        axisLabel: { 
+          color: theme.textSecondary,
+          formatter: '{value}%'
+        }
+      },
+      series: [{
+        data: hourlyData.map(item => item?.occupancy ?? 0),
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        lineStyle: {
+          color: theme.warning,
+          width: 3
+        },
+        areaStyle: {
+          color: createAreaGradient(theme.warning)
+        }
+      }]
+    }
+    hourlyChart.setOption(option)
+  } catch (error) {
+    console.error('初始化时段分析图表失败:', error)
+  }
 }
 
 // 初始化星期分布图表
 function initWeeklyChart() {
-  if (!weeklyChartRef.value) return
-  weeklyChart = ensureChartInstance(echarts, weeklyChartRef.value, weeklyChart)
-  const theme = getAnalyticsTheme()
-  const data = trendData.value.weeklyData || []
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: '{b}: {c}',
-      backgroundColor: theme.panel,
-      borderColor: theme.border,
-      textStyle: { color: theme.textPrimary }
-    },
-    radar: {
-      indicator: data.map(item => ({ name: item.day, max: 100 })),
-      radius: '65%',
-      axisLine: { lineStyle: { color: theme.axisLine } },
-      splitLine: { lineStyle: { color: theme.splitLine } },
-      splitArea: { areaStyle: { color: [withAlpha(theme.primary, 0.04)] } },
-      axisName: { color: theme.textSecondary }
-    },
-    series: [{
-      type: 'radar',
-      data: [{
-        value: data.map(item => item.value),
-        name: '运营指数',
-        areaStyle: {
-          color: withAlpha(theme.primary, 0.3)
-        },
-        lineStyle: {
-          color: theme.primary,
-          width: 2
-        },
-        itemStyle: {
-          color: theme.primary
-        }
-      }]
-    }]
+  if (!weeklyChartRef.value) {
+    console.warn('星期分布图表容器不存在')
+    return
   }
-  weeklyChart.setOption(option)
+  
+  try {
+    weeklyChart = ensureChartInstance(echarts, weeklyChartRef.value, weeklyChart)
+    const theme = getAnalyticsTheme()
+    const weeklyData = trendData.value.weeklyData || []
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: '{b}: {c}',
+        backgroundColor: theme.panel,
+        borderColor: theme.border,
+        textStyle: { color: theme.textPrimary }
+      },
+      legend: {
+        data: ['运营指数'],
+        top: 0,
+        right: 16,
+        textStyle: { color: theme.textSecondary }
+      },
+      radar: {
+        indicator: weeklyData.map(item => ({ name: item?.day || '', max: 100 })),
+        radius: '65%',
+        axisLine: { lineStyle: { color: theme.axisLine } },
+        splitLine: { lineStyle: { color: theme.splitLine } },
+        splitArea: { areaStyle: { color: [withAlpha(theme.primary, 0.04)] } },
+        axisName: { color: theme.textSecondary }
+      },
+      series: [{
+        type: 'radar',
+        data: [{
+          value: weeklyData.map(item => item?.value ?? 0),
+          name: '运营指数',
+          areaStyle: {
+            color: withAlpha(theme.primary, 0.3)
+          },
+          lineStyle: {
+            color: theme.primary,
+            width: 2
+          },
+          itemStyle: {
+            color: theme.primary
+          }
+        }]
+      }]
+    }
+    weeklyChart.setOption(option)
+  } catch (error) {
+    console.error('初始化星期分布图表失败:', error)
+  }
 }
 
 // 加载停车场列表
@@ -660,11 +740,15 @@ async function fetchTrendData() {
     if (res.code === 200) {
       trendData.value = { ...trendData.value, ...res.data }
       nextTick(() => {
-        initComprehensiveChart()
-        initIncomeChart()
-        initVehicleChart()
-        initHourlyChart()
-        initWeeklyChart()
+        try {
+          initComprehensiveChart()
+          initIncomeChart()
+          initVehicleChart()
+          initHourlyChart()
+          initWeeklyChart()
+        } catch (chartError) {
+          console.error('图表初始化失败:', chartError)
+        }
       })
     }
   } catch (error) {

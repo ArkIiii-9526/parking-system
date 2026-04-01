@@ -20,6 +20,15 @@
           <el-icon><Collection /></el-icon>
           <span>批量添加</span>
         </button>
+        <button class="action-btn danger" v-permission="'space:delete'" @click="handleBatchDelete" :disabled="selectedSpaceIds.length === 0">
+          <el-icon><Delete /></el-icon>
+          <span v-if="selectedSpaceIds.length > 0">批量删除 ({{ selectedSpaceIds.length }})</span>
+          <span v-else>批量删除</span>
+        </button>
+        <button class="action-btn secondary" v-if="tableData.length > 0" @click="toggleSelectAll">
+          <el-icon><Select /></el-icon>
+          <span>{{ selectedSpaceIds.length === tableData.length ? '取消全选' : '全选本页' }}</span>
+        </button>
       </div>
     </div>
 
@@ -99,6 +108,12 @@
           </div>
         </div>
         <div class="filter-actions">
+          <el-radio-group v-model="filterForm.status" @change="handleSearch" style="margin-right: 16px;">
+            <el-radio-button :label="null">全部</el-radio-button>
+            <el-radio-button :label="1">空闲</el-radio-button>
+            <el-radio-button :label="2">占用</el-radio-button>
+            <el-radio-button :label="3">已预约</el-radio-button>
+          </el-radio-group>
           <button class="filter-btn primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
             <span>搜索</span>
@@ -117,11 +132,18 @@
         v-for="(space, index) in tableData"
         :key="space.id"
         class="space-card"
-        :class="[getStatusClass(space.status), { 'animate-in': animated }]"
+        :class="[getStatusClass(space.status), { 'animate-in': animated, 'is-selected': selectedSpaceIds.includes(space.id) }]"
         :style="{ animationDelay: `${index * 30}ms` }"
+        @click="toggleSelection(space.id)"
       >
         <div class="space-header">
           <div class="space-code-wrapper">
+            <el-checkbox
+              :model-value="selectedSpaceIds.includes(space.id)"
+              @change="toggleSelection(space.id)"
+              @click.stop
+              style="margin-right: 8px;"
+            />
             <el-icon class="header-icon"><Location /></el-icon>
             <span class="space-code">{{ space.spaceCode || space.spaceNumber || space.code || space.name || '未知车位' }}</span>
           </div>
@@ -264,6 +286,65 @@
         </div>
       </template>
     </el-dialog>
+    <!-- 批量添加对话框 -->
+    <el-dialog
+      v-model="batchDialogVisible"
+      title="批量添加停车位"
+      width="520px"
+      :close-on-click-modal="false"
+      class="glass-dialog"
+    >
+      <el-form ref="batchFormRef" :model="batchForm" :rules="batchFormRules" label-width="100px" class="space-form">
+        <el-form-item label="停车场" prop="parkingId">
+          <el-select v-model="batchForm.parkingId" placeholder="选择停车场" style="width: 100%" disabled>
+            <el-option v-for="p in parkingList" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="编号前缀" prop="prefix">
+          <el-input v-model="batchForm.prefix" placeholder="如：A-" />
+        </el-form-item>
+
+        <div class="form-row">
+          <el-form-item label="起始编号" prop="startNum" style="flex: 1">
+            <el-input-number v-model="batchForm.startNum" :min="1" :max="999" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="结束编号" prop="endNum" style="flex: 1">
+            <el-input-number v-model="batchForm.endNum" :min="1" :max="999" style="width: 100%" />
+          </el-form-item>
+        </div>
+
+        <div class="form-row">
+          <el-form-item label="楼层" prop="floor" style="flex: 1">
+            <el-input v-model="batchForm.floor" placeholder="如：1F" />
+          </el-form-item>
+          <el-form-item label="区域" prop="area" style="flex: 1">
+            <el-input v-model="batchForm.area" placeholder="如：A区" />
+          </el-form-item>
+        </div>
+
+        <el-form-item label="车位类型" prop="spaceType">
+          <el-select v-model="batchForm.spaceType" placeholder="选择类型" style="width: 100%">
+            <el-option label="普通车位" :value="1" />
+            <el-option label="VIP车位" :value="2" />
+            <el-option label="充电车位" :value="3" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <button class="dialog-btn" @click="batchDialogVisible = false">取消</button>
+          <button class="dialog-btn primary" @click="submitBatchAdd" :disabled="submitLoading">
+            <span v-if="!submitLoading">批量创建</span>
+            <span v-else class="loading-text">
+              <span class="loading-spinner"></span>
+              处理中...
+            </span>
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -280,8 +361,27 @@ const dialogType = ref('add')
 const formRef = ref(null)
 const animated = ref(false)
 
+const batchDialogVisible = ref(false)
+const batchFormRef = ref(null)
+const batchForm = reactive({
+  parkingId: null,
+  prefix: 'A-',
+  startNum: 1,
+  endNum: 10,
+  floor: '1F',
+  area: 'A区',
+  spaceType: 1
+})
+const batchFormRules = {
+  prefix: [{ required: true, message: '请输入编号前缀', trigger: 'blur' }],
+  floor: [{ required: true, message: '请输入楼层', trigger: 'blur' }],
+  area: [{ required: true, message: '请输入区域', trigger: 'blur' }]
+}
+
 const tableData = ref([])
 const parkingList = ref([])
+const selectedSpaceIds = ref([])
+
 const filterForm = reactive({
   parkingId: null,
   area: '',
@@ -372,6 +472,7 @@ async function loadData() {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.total = res.data.total || 0
+      selectedSpaceIds.value = []
       animated.value = false
       setTimeout(() => {
         animated.value = true
@@ -451,7 +552,7 @@ function handleEdit(row) {
 
 function handleDelete(row) {
   ElMessageBox.confirm(
-    `确定要删除车位 "${row.spaceCode}" 吗？`,
+    `确定要删除车位 "${row.spaceCode || row.spaceNumber || row.code || row.name}" 吗？`,
     '确认删除',
     {
       confirmButtonText: '确定删除',
@@ -469,6 +570,67 @@ function handleDelete(row) {
       }
     } catch (_) {
       ElMessage.error('删除失败')
+    }
+  })
+}
+
+function toggleSelection(id) {
+  const index = selectedSpaceIds.value.indexOf(id)
+  if (index > -1) {
+    selectedSpaceIds.value.splice(index, 1)
+  } else {
+    selectedSpaceIds.value.push(id)
+  }
+}
+
+function toggleSelectAll() {
+  if (selectedSpaceIds.value.length === tableData.value.length) {
+    selectedSpaceIds.value = []
+  } else {
+    selectedSpaceIds.value = tableData.value.map(item => item.id)
+  }
+}
+
+function handleBatchDelete() {
+  if (selectedSpaceIds.value.length === 0) return
+
+  ElMessageBox.confirm(
+    `确定要批量删除已选的 ${selectedSpaceIds.value.length} 个车位吗？此操作不可逆！`,
+    '确认批量删除',
+    {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      submitLoading.value = true
+      let successCount = 0
+      let failCount = 0
+      
+      const promises = selectedSpaceIds.value.map(id => deleteParkingSpace(id))
+      const results = await Promise.allSettled(promises)
+      
+      results.forEach(res => {
+        if (res.status === 'fulfilled' && res.value.code === 200) {
+          successCount++
+        } else {
+          failCount++
+        }
+      })
+      
+      if (failCount === 0) {
+        ElMessage.success(`成功删除 ${successCount} 个车位`)
+      } else {
+        ElMessage.warning(`删除完成。成功: ${successCount}，失败: ${failCount}`)
+      }
+      selectedSpaceIds.value = []
+      loadData()
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    } finally {
+      submitLoading.value = false
     }
   })
 }
@@ -540,10 +702,66 @@ async function handleSubmit() {
 
 function handleBatchAdd() {
   if (!filterForm.parkingId) {
-    ElMessage.warning('请先选择停车场')
+    ElMessage.warning('请先在左侧筛选栏选择要操作的停车场')
     return
   }
-  ElMessage.info('批量添加功能开发中...')
+  batchForm.parkingId = filterForm.parkingId
+  batchDialogVisible.value = true
+}
+
+async function submitBatchAdd() {
+  try {
+    await batchFormRef.value.validate()
+    if (batchForm.startNum > batchForm.endNum) {
+      ElMessage.warning('起始编号不能大于结束编号')
+      return
+    }
+    const count = batchForm.endNum - batchForm.startNum + 1
+    if (count > 100) {
+      ElMessage.warning('单次最多批量添加 100 个车位')
+      return
+    }
+
+    submitLoading.value = true
+    let successCount = 0
+    let failCount = 0
+
+    // Sequential creation for stability, or Promise.all if the backend supports high concurrency
+    const promises = []
+    for (let i = batchForm.startNum; i <= batchForm.endNum; i++) {
+      const code = `${batchForm.prefix}${i.toString().padStart(3, '0')}`
+      const payload = {
+        parkingId: batchForm.parkingId,
+        spaceCode: code,
+        floor: batchForm.floor,
+        area: batchForm.area,
+        spaceType: batchForm.spaceType,
+        status: 1
+      }
+      promises.push(createParkingSpace(payload))
+    }
+
+    const results = await Promise.allSettled(promises)
+    results.forEach(res => {
+      if (res.status === 'fulfilled' && res.value.code === 200) {
+        successCount++
+      } else {
+        failCount++
+      }
+    })
+
+    if (failCount === 0) {
+      ElMessage.success(`成功批量创建 ${successCount} 个车位`)
+      batchDialogVisible.value = false
+    } else {
+      ElMessage.warning(`创建完成。成功: ${successCount}，失败: ${failCount}`)
+    }
+    loadData()
+  } catch (error) {
+    console.error('批量添加失败:', error)
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -970,6 +1188,12 @@ onMounted(() => {
   &.animate-in {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  &.is-selected {
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+    transform: translateY(-4px);
   }
 
   &:hover {
