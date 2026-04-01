@@ -27,6 +27,12 @@ const routes = [
     meta: { title: '', hidden: true },
     children: [
       {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('@/views/profile/index.vue'),
+        meta: { title: '个人中心', hidden: true }
+      },
+      {
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
@@ -128,31 +134,31 @@ const routes = [
         path: 'system',
         name: 'System',
         redirect: '/system/user',
-        meta: { title: '系统管理', icon: 'Setting' },
+        meta: { title: '系统管理', icon: 'Setting', permission: 'system:manage' },
         children: [
           {
             path: 'user',
             name: 'SystemUser',
             component: () => import('@/views/system/user-manage.vue'),
-            meta: { title: '用户管理', icon: 'User' }
+            meta: { title: '用户管理', icon: 'User', permission: 'user:list' }
           },
           {
             path: 'role',
             name: 'SystemRole',
             component: () => import('@/views/system/role-manage.vue'),
-            meta: { title: '角色管理', icon: 'UserFilled' }
+            meta: { title: '角色管理', icon: 'UserFilled', permission: 'role:list' }
           },
           {
             path: 'permission',
             name: 'SystemPermission',
             component: () => import('@/views/system/permission-manage.vue'),
-            meta: { title: '权限管理', icon: 'Lock' }
+            meta: { title: '权限管理', icon: 'Lock', permission: 'menu:list' }
           },
           {
             path: 'config',
             name: 'SystemConfig',
             component: () => import('@/views/system/config-manage.vue'),
-            meta: { title: '系统配置', icon: 'Tools' }
+            meta: { title: '系统配置', icon: 'Tools', permission: 'config:list' }
           },
           {
             path: 'audit-log',

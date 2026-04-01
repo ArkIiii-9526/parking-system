@@ -5,10 +5,17 @@ import { ElMessage } from 'element-plus'
 import { hasPermission } from '@/utils/hasPermission'
 
 function checkRoutePermission(to) {
-  const raw = to.meta?.permission
-  if (!raw) return true
-  const codes = Array.isArray(raw) ? raw : [raw]
-  return codes.some((code) => hasPermission(code))
+  // 从 to.matched 数组中收集所有需要校验的权限
+  const permissions = to.matched
+    .filter(record => record.meta && record.meta.permission)
+    .map(record => record.meta.permission)
+    .flatMap(raw => Array.isArray(raw) ? raw : [raw])
+
+  // 如果当前路由及所有父级路由都没有配置 permission，默认放行
+  if (permissions.length === 0) return true
+
+  // 要求所有的 permission 都要满足（如果需要宽松策略可以改用 some）
+  return permissions.every(code => hasPermission(code))
 }
 
 const whiteList = ['/login']
@@ -32,8 +39,8 @@ router.beforeEach(async (to, from, next) => {
         const { useUserStore } = userStore
         const store = useUserStore()
         
-        // 仅有菜单缓存不够，按钮权限需要显式加载完成后才能安全跳过初始化
-        if (store.menus && store.menus.length > 0 && store.permissionsLoaded) {
+        // 使用 user 信息是否存在来判断是否已经加载过用户信息
+        if (store.user && store.permissionsLoaded) {
           if (!checkRoutePermission(to)) {
             ElMessage.warning('无权限访问该页面')
             next({ path: '/404' })

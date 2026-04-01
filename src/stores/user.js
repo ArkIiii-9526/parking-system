@@ -23,7 +23,11 @@ function convertMenusToRouteFormat(menuList) {
 
     // 如果有子菜单，递归转换
     if (menu.children && menu.children.length > 0) {
-      route.children = convertMenusToRouteFormat(menu.children)
+      // 过滤掉不可见的子菜单
+      const visibleChildren = menu.children.filter(child => child.status === 1)
+      if (visibleChildren.length > 0) {
+        route.children = convertMenusToRouteFormat(visibleChildren)
+      }
     }
 
     return route
@@ -129,6 +133,7 @@ export const useUserStore = defineStore('user', () => {
           menus.value = convertMenusToRouteFormat(res.data) || []
           const permissionsFromMenus = extractPermissionCodes(res.data)
           permissions.value = [...new Set([...permissionsFromApi, ...permissionsFromMenus])]
+          roles.value = [] // 确保没有混入角色
         } else {
           // 否则按正常格式处理
           user.value = res.data.user || user.value
@@ -141,6 +146,13 @@ export const useUserStore = defineStore('user', () => {
           }
           menus.value = convertMenusToRouteFormat(res.data.menus) || []
         }
+        
+        // 【关键修复】如果是普通用户或没有权限，强制清空超级管理员缓存影响，保证不越权
+        if (user.value?.userType !== 'ADMIN' && (!roles.value.includes('SUPER_ADMIN') && !roles.value.includes('admin') && !roles.value.includes('ADMIN'))) {
+          // 确保 permissions 数组里不含超级权限
+          permissions.value = permissions.value.filter(p => p !== '*:*:*')
+        }
+
         persistUserState()
         return res.data
       }
@@ -196,6 +208,8 @@ export const useUserStore = defineStore('user', () => {
     permissionsLoaded.value = false
     resetAnalyticsExportFormatsCache()
     clearAll()
+    localStorage.removeItem('parking_token')
+    localStorage.removeItem('parking_refresh_token')
   }
 
   return {

@@ -115,6 +115,13 @@
         <el-form-item label="密码" prop="password" v-if="dialogType === 'add'">
           <el-input v-model="formData.password" type="password" placeholder="请输入密码" show-password />
         </el-form-item>
+        <el-form-item label="用户类型" prop="userType">
+          <el-select v-model="formData.userType" placeholder="请选择用户类型">
+            <el-option label="管理员" value="ADMIN" />
+            <el-option label="巡检员" value="INSPECTOR" />
+            <el-option label="普通用户" value="OWNER" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" />
         </el-form-item>
@@ -183,12 +190,13 @@ const filterForm = reactive({
 })
 
 const formData = reactive({
-  id: null,
+  userId: null,
   username: '',
   nickname: '',
   phone: '',
   email: '',
   password: '',
+  userType: 'OWNER',
   status: 1
 })
 
@@ -199,6 +207,9 @@ const formRules = {
   ],
   nickname: [
     { required: true, message: '请输入昵称', trigger: 'blur' }
+  ],
+  userType: [
+    { required: true, message: '请选择用户类型', trigger: 'change' }
   ],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
@@ -287,8 +298,12 @@ function handleAdd() {
   Object.keys(formData).forEach(key => {
     if (key === 'status') {
       formData[key] = 1
+    } else if (key === 'userType') {
+      formData[key] = 'OWNER'
     } else if (key === 'password') {
       formData[key] = ''
+    } else if (key === 'userId') {
+      formData[key] = null
     } else {
       formData[key] = ''
     }
@@ -305,7 +320,7 @@ function handleEdit(row) {
 async function handleAssignRole(row) {
   currentUser.value = row
   try {
-    const res = await getUserRoles(row.id)
+    const res = await getUserRoles(row.userId)
     if (res.code === 200) {
       selectedRoles.value = res.data || []
     }
@@ -319,7 +334,7 @@ async function handleRoleSubmit() {
   roleLoading.value = true
   try {
     const res = await assignUserRole({
-      userId: currentUser.value.id,
+      userId: currentUser.value.userId,
       roleIds: selectedRoles.value
     })
     if (res.code === 200) {
@@ -339,7 +354,7 @@ async function handleRoleSubmit() {
 async function handleStatusChange(row) {
   try {
     const res = await updateUserStatus({
-      userId: row.id,
+      userId: row.userId,
       status: row.status === 1 ? 0 : 1
     })
     if (res.code === 200) {
@@ -361,7 +376,7 @@ function handleDelete(row) {
     type: 'warning'
   }).then(async () => {
     try {
-      const res = await deleteUser(row.id)
+      const res = await deleteUser(row.userId)
       if (res.code === 200) {
         ElMessage.success('删除成功')
         loadData()

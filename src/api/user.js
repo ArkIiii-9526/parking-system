@@ -31,6 +31,25 @@ export function updateUser(data) {
   })
 }
 
+export function updateUserProfile(data) {
+  return request({
+    url: '/sys/user/profile',
+    method: 'put',
+    data
+  })
+}
+
+export function updateUserPwd(data) {
+  return request({
+    url: '/sys/user/pwd',
+    method: 'put',
+    data: {
+      oldPassword: data.oldPassword,
+      newPassword: data.newPassword
+    }
+  })
+}
+
 export function deleteUser(userId) {
   return request({
     url: `/sys/user/${userId}`,

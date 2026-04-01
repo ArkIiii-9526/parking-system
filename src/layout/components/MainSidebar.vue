@@ -143,9 +143,14 @@ function updateMenus() {
   if (userStore.menus && userStore.menus.length > 0) {
     menuRoutes.value = userStore.menus
   } else {
-    // 如果没有获取到菜单，使用本地路由作为后备
-    const localRoutes = router.getRoutes().find(r => r.path === '/')?.children || []
-    menuRoutes.value = localRoutes
+    // 如果没有获取到菜单，只显示默认基础菜单，不能回退到所有路由
+    menuRoutes.value = [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        meta: { title: '首页', icon: 'Odometer' }
+      }
+    ]
   }
 }
 
@@ -155,10 +160,15 @@ function toggleCollapse() {
 }
 
 function toggleMenu(path) {
+  // 我们想要手风琴效果（每次只展开一个），当点击一个菜单时，我们可以关闭其他菜单
   const index = expandedMenus.value.indexOf(path)
   if (index > -1) {
+    // 如果已经展开，则将其移除
     expandedMenus.value.splice(index, 1)
   } else {
+    // 手风琴效果（每次只展开一个）
+    expandedMenus.value = []
+    
     expandedMenus.value.push(path)
   }
 }

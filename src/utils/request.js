@@ -37,14 +37,15 @@ service.interceptors.response.use(
   (response) => {
     // 确保 response.data 存在
     const responseData = response.data || {}
-    const { code, msg, data } = responseData
+    const { code, msg, message, data } = responseData
+    const errMsg = msg || message || '请求失败'
     
     // 检查 HTTP 状态码是否成功
     if (response.status >= 200 && response.status < 300) {
       // 如果响应数据有 code 字段，则按业务逻辑处理
       if (typeof code === 'number') {
         if (code === 200) {
-          return { code, msg, data }
+          return { code, msg: errMsg, data }
         } else if (code === 401) {
           const config = response.config
           if (!isRefreshing) {
@@ -90,8 +91,8 @@ service.interceptors.response.use(
             })
           }
         } else {
-          ElMessage.error(msg || '请求失败')
-          return Promise.reject(new Error(msg || '请求失败'))
+          ElMessage.error(errMsg)
+          return Promise.reject(new Error(errMsg))
         }
       } else {
         // 如果响应数据没有 code 字段，直接返回数据
