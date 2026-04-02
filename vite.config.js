@@ -39,6 +39,48 @@ export default defineConfig(({ mode }) => {
         dts: 'src/components.d.ts'
       })
     ],
+    optimizeDeps: {
+      include: [
+        'element-plus',
+        '@element-plus/icons-vue',
+        'echarts',
+        '@amap/amap-jsapi-loader',
+        'element-plus/es',
+        'element-plus/es/components/base/style/css',
+        'element-plus/es/components/radio-group/style/css',
+        'element-plus/es/components/radio-button/style/css',
+        'element-plus/es/components/icon/style/css',
+        'element-plus/es/components/dropdown/style/css',
+        'element-plus/es/components/dropdown-menu/style/css',
+        'element-plus/es/components/dropdown-item/style/css',
+        'element-plus/es/components/avatar/style/css',
+        'element-plus/es/components/popover/style/css',
+        'element-plus/es/components/input/style/css',
+        'element-plus/es/components/breadcrumb/style/css',
+        'element-plus/es/components/breadcrumb-item/style/css',
+        'element-plus/es/components/scrollbar/style/css',
+        'element-plus/es/components/drawer/style/css',
+        'element-plus/es/components/dialog/style/css',
+        'element-plus/es/components/form/style/css',
+        'element-plus/es/components/switch/style/css',
+        'element-plus/es/components/input-number/style/css',
+        'element-plus/es/components/form-item/style/css',
+        'element-plus/es/components/pagination/style/css',
+        'element-plus/es/components/collapse/style/css',
+        'element-plus/es/components/collapse-item/style/css',
+        'element-plus/es/components/empty/style/css',
+        'element-plus/es/components/table/style/css',
+        'element-plus/es/components/table-column/style/css',
+        'element-plus/es/components/button/style/css',
+        'element-plus/es/components/checkbox/style/css',
+        'element-plus/es/components/select/style/css',
+        'element-plus/es/components/option/style/css',
+        'element-plus/es/components/loading/style/css',
+        'element-plus/es/components/checkbox-group/style/css',
+        'element-plus/es/components/tag/style/css',
+        'element-plus/es/components/card/style/css'
+      ]
+    },
     css: {
       preprocessorOptions: {
         scss: {

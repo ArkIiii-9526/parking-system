@@ -32,14 +32,14 @@
     <div class="sidebar-body">
       <el-scrollbar>
         <nav class="menu-nav">
-          <template v-for="route in menuRoutes" :key="route.path">
+          <template v-for="(route, routeIndex) in menuRoutes" :key="getMenuExpandKey(route, routeIndex)">
             <template v-if="!route.hidden">
               <!-- 单级菜单 -->
               <router-link
-                v-if="!route.children || route.children.length === 1"
-                :to="route.path.startsWith('/') ? route.path : `/${route.path}`"
+                v-if="!route.children || route.children.length === 0"
+                :to="getSingleMenuTarget(route)"
                 class="menu-item"
-                :class="{ 'is-active': activeMenu === (route.path.startsWith('/') ? route.path : `/${route.path}`) }"
+                :class="{ 'is-active': activeMenu === getSingleMenuTarget(route) }"
               >
                 <span class="menu-icon">
                   <el-icon v-if="route.meta?.icon">
@@ -54,11 +54,11 @@
               <div
                 v-else
                 class="menu-group"
-                :class="{ 'is-expanded': expandedMenus.includes(route.path) }"
+                :class="{ 'is-expanded': expandedMenus.includes(getMenuExpandKey(route, routeIndex)) }"
               >
                 <button
                   class="menu-item menu-trigger"
-                  @click="toggleMenu(route.path)"
+                  @click="toggleMenu(route, routeIndex)"
                 >
                   <span class="menu-icon">
                     <el-icon v-if="route.meta?.icon">
@@ -71,13 +71,13 @@
                   </el-icon>
                 </button>
                 <transition name="slide">
-                  <div v-show="!isCollapse && expandedMenus.includes(route.path)" class="submenu">
+                  <div v-show="!isCollapse && expandedMenus.includes(getMenuExpandKey(route, routeIndex))" class="submenu">
                     <router-link
-                      v-for="child in route.children"
-                      :key="child.path"
-                      :to="resolvePath(route.path, child.path)"
+                      v-for="(child, childIndex) in route.children"
+                      :key="getChildMenuKey(child, childIndex)"
+                      :to="child.path"
                       class="submenu-item"
-                      :class="{ 'is-active': activeMenu === resolvePath(route.path, child.path) }"
+                      :class="{ 'is-active': activeMenu === child.path }"
                     >
                       <span class="submenu-dot"></span>
                       <span class="submenu-title">{{ child.meta?.title }}</span>
@@ -111,11 +111,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 
 const isCollapse = ref(false)
@@ -130,13 +129,22 @@ const activeMenu = computed(() => {
   return path
 })
 
-function resolvePath(basePath, path) {
-  if (path.startsWith('/')) {
-    return path
+function getMenuExpandKey(routeItem, routeIndex = 0) {
+  const baseKey = routeItem.name || routeItem.meta?.menuId || routeItem.path || 'menu'
+  return `${baseKey}::${routeIndex}`
+}
+
+function getChildMenuKey(routeItem, routeIndex = 0) {
+  const baseKey = routeItem.name || routeItem.meta?.menuId || routeItem.path || 'submenu'
+  return `${baseKey}::${routeIndex}`
+}
+
+function getSingleMenuTarget(routeItem) {
+  if (routeItem.path) return routeItem.path
+  if (Array.isArray(routeItem.children) && routeItem.children.length === 1 && routeItem.children[0]?.path) {
+    return routeItem.children[0].path
   }
-  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
-  const absoluteBasePath = normalizedBase.startsWith('/') ? normalizedBase : `/${normalizedBase}`
-  return `${absoluteBasePath}/${path}`.replace(/\/+/g, '/')
+  return '/dashboard'
 }
 
 function updateMenus() {
@@ -160,9 +168,10 @@ function toggleCollapse() {
   emit('collapse', isCollapse.value)
 }
 
-function toggleMenu(path) {
+function toggleMenu(routeItem, routeIndex = 0) {
+  const expandKey = getMenuExpandKey(routeItem, routeIndex)
   // 我们想要手风琴效果（每次只展开一个），当点击一个菜单时，我们可以关闭其他菜单
-  const index = expandedMenus.value.indexOf(path)
+  const index = expandedMenus.value.indexOf(expandKey)
   if (index > -1) {
     // 如果已经展开，则将其移除
     expandedMenus.value.splice(index, 1)
@@ -170,7 +179,7 @@ function toggleMenu(path) {
     // 手风琴效果（每次只展开一个）
     expandedMenus.value = []
     
-    expandedMenus.value.push(path)
+    expandedMenus.value.push(expandKey)
   }
 }
 

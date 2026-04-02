@@ -483,10 +483,10 @@ function handleCurrentChange(page) {
 
 function initMap() {
   window._AMapSecurityConfig = {
-    securityJsCode: 'your_amap_security_code' // 请替换为您的安全密钥，或使用代理
+    securityJsCode: 'c6c1265edc3d030c7baae5a773d69385'
   }
   AMapLoader.load({
-    key: 'f0c0b89a815a019483320f7823f6d71b', // 这是一个测试key，建议替换为自己的
+    key: 'd963732f1faa63a7f398b0c114b65cad',
     version: '2.0',
     plugins: ['AMap.Geocoder']
   }).then((AMap) => {

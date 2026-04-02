@@ -54,7 +54,7 @@ const routes = [
           path: 'vehicle',
           name: 'Vehicle',
           component: () => import('@/views/vehicle/index.vue'),
-          meta: { title: '车辆进出管理', icon: 'Truck', permission: 'billing:view' }
+          meta: { title: '车辆进出管理', icon: 'Truck', permission: 'vehicle:view' }
         },
       {
         path: 'billing',
@@ -116,7 +116,7 @@ const routes = [
         path: 'simulation',
         name: 'Simulation',
         component: () => import('@/views/simulation/index.vue'),
-        meta: { title: '模拟数据', icon: 'Cpu', permission: 'simulation:generate' }
+        meta: { title: '模拟数据', icon: 'Cpu', permission: ['simulation:view', 'simulation:manage', 'simulation:generate'] }
       },
       {
         path: 'guidance',

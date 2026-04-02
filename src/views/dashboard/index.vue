@@ -326,12 +326,13 @@ async function loadDashboardData() {
   try {
     // 获取停车场列表
     const parkingRes = await getParkingPage({ pageNo: 1, pageSize: 100 })
-    if (parkingRes.code === 200) {
-      const parkings = parkingRes.data?.records || []
-      stats.totalParkings = parkingRes.data?.total || 0
+    if (parkingRes && parkingRes.code === 200) {
+      const records = parkingRes.data?.records
+      const parkings = Array.isArray(records) ? records : []
+      stats.totalParkings = parkingRes.data?.total || parkings.length || 0
       
-      stats.totalSpaces = parkings.reduce((sum, p) => sum + (p.totalSpaces || 0), 0)
-      stats.availableSpaces = parkings.reduce((sum, p) => sum + (p.availableSpaces || 0), 0)
+      stats.totalSpaces = parkings.reduce((sum, p) => sum + (Number(p?.totalSpaces) || 0), 0)
+      stats.availableSpaces = parkings.reduce((sum, p) => sum + (Number(p?.availableSpaces) || 0), 0)
       
       if (stats.totalSpaces > 0) {
         stats.usageRate = Math.round(((stats.totalSpaces - stats.availableSpaces) / stats.totalSpaces) * 100)
@@ -343,13 +344,15 @@ async function loadDashboardData() {
       statsCards.value[2].value = stats.availableSpaces.toString()
       
       // 获取车辆记录
-      if (parkings.length > 0) {
+      if (parkings.length > 0 && parkings[0]?.id) {
         try {
           const recordsRes = await getVehicleRecordsByParking(parkings[0].id, { pageNo: 1, pageSize: 5 })
-          if (recordsRes.code === 200) {
-            recentRecords.value = (recordsRes.data?.records || []).map(record => ({
+          if (recordsRes && recordsRes.code === 200) {
+            const vehicleRecords = recordsRes.data?.records
+            const recordsArray = Array.isArray(vehicleRecords) ? vehicleRecords : []
+            recentRecords.value = recordsArray.map(record => ({
               ...record,
-              parkingName: parkings.find(p => p.id === record.parkingId)?.name || ''
+              parkingName: parkings.find(p => p.id === record.parkingId)?.name || '未知停车场'
             }))
           }
         } catch (e) {
@@ -363,15 +366,15 @@ async function loadDashboardData() {
       const today = new Date()
       const formattedDate = today.toISOString().split('T')[0]
       const revenueRes = await getDailyStatistics({ date: String(formattedDate) })
-      if (revenueRes.code === 200 && revenueRes.data) {
-        stats.todayRevenue = revenueRes.data.totalAmount || 0
+      if (revenueRes && revenueRes.code === 200 && revenueRes.data) {
+        stats.todayRevenue = Number(revenueRes.data.totalAmount) || 0
         statsCards.value[3].value = `¥${stats.todayRevenue.toLocaleString()}`
       }
     } catch (e) {
       console.error('获取营收数据失败:', e)
     }
   } catch (error) {
-    console.error('加载数据失败:', error)
+    console.error('加载数据失败详细信息:', error?.message || error)
   }
 }
 

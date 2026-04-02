@@ -6,18 +6,98 @@ import { getUserPermissions } from '@/api/user'
 import router, { resetRouter } from '@/router'
 import { resetAnalyticsExportFormatsCache } from '@/utils/analyticsExportFormats'
 
+function normalizeRoutePath(parentPath = '', currentPath = '') {
+  const parent = (parentPath || '').trim()
+  const current = (currentPath || '').trim()
+
+  if (!current) return parent
+  if (current.startsWith('/')) return current.replace(/\/+/g, '/')
+  if (!parent) return `/${current}`.replace(/\/+/g, '/')
+
+  return `${parent.replace(/\/+$/, '')}/${current.replace(/^\/+/, '')}`.replace(/\/+/g, '/')
+}
+
+function buildRouteMatcher() {
+  const permissionPathMap = {}
+  const permissionPrefixPathMap = {}
+  const suffixPathMap = {}
+  const routePathSet = new Set()
+  const routes = router.getRoutes()
+
+  routes.forEach((route) => {
+    if (route.path) {
+      routePathSet.add(route.path)
+      const segments = route.path.split('/').filter(Boolean)
+      const suffix = segments[segments.length - 1]
+      if (suffix) {
+        if (!suffixPathMap[suffix]) {
+          suffixPathMap[suffix] = []
+        }
+        suffixPathMap[suffix].push(route.path)
+      }
+    }
+
+    const permission = route.meta?.permission
+    if (!permission) return
+
+    const codes = Array.isArray(permission) ? permission : [permission]
+    codes.forEach((code) => {
+      if (code && !permissionPathMap[code]) {
+        permissionPathMap[code] = route.path
+      }
+      if (code) {
+        const prefix = code.split(':')[0]
+        if (!permissionPrefixPathMap[prefix] || route.path.length < permissionPrefixPathMap[prefix].length) {
+          permissionPrefixPathMap[prefix] = route.path
+        }
+      }
+    })
+  })
+
+  return { permissionPathMap, permissionPrefixPathMap, suffixPathMap, routePathSet }
+}
+
+function resolveMenuPath(menu, parentPath = '', routeMatcher) {
+  const { permissionPathMap, permissionPrefixPathMap, suffixPathMap, routePathSet } = routeMatcher
+  const mappedByPermission = permissionPathMap[menu.permissionCode]
+  if (mappedByPermission) return mappedByPermission
+  
+  const normalizedByUrl = normalizeRoutePath(parentPath, menu.url || '')
+  if (routePathSet.has(normalizedByUrl)) return normalizedByUrl
+
+  if (menu.permissionCode) {
+    const prefix = menu.permissionCode.split(':')[0]
+    if (permissionPrefixPathMap[prefix]) {
+      return permissionPrefixPathMap[prefix]
+    }
+  }
+
+  if (menu.url && suffixPathMap[menu.url]?.length === 1) {
+    return suffixPathMap[menu.url][0]
+  }
+
+  if (['list', 'index', 'home'].includes(menu.url) && parentPath && routePathSet.has(parentPath)) {
+    return parentPath
+  }
+
+  return normalizedByUrl
+}
+
 // 将后端菜单数据转换为前端路由格式
-function convertMenusToRouteFormat(menuList) {
+function convertMenusToRouteFormat(menuList, parentPath = '', routeMatcher) {
   if (!Array.isArray(menuList)) return []
 
   return menuList.map(menu => {
+    const fullPath = resolveMenuPath(menu, parentPath, routeMatcher)
     const route = {
-      path: menu.url || '',
+      path: fullPath,
       name: menu.permissionCode || menu.permissionName,
       meta: {
         title: menu.permissionName,
         icon: menu.icon || 'Menu',
-        hidden: menu.status !== 1
+        hidden: menu.status !== 1,
+        permission: menu.permissionCode,
+        menuId: menu.permissionId
       }
     }
 
@@ -26,12 +106,18 @@ function convertMenusToRouteFormat(menuList) {
       // 过滤掉不可见的子菜单
       const visibleChildren = menu.children.filter(child => child.status === 1)
       if (visibleChildren.length > 0) {
-        route.children = convertMenusToRouteFormat(visibleChildren)
+        route.children = convertMenusToRouteFormat(visibleChildren, route.path, routeMatcher)
       }
     }
 
+    const hasVisibleChildren = Array.isArray(route.children) && route.children.length > 0
+    const pathExists = routeMatcher.routePathSet.has(route.path)
+    if (!hasVisibleChildren && !pathExists) {
+      return null
+    }
+
     return route
-  })
+  }).filter(Boolean)
 }
 
 function extractPermissionCodes(items) {
@@ -66,14 +152,31 @@ function parseTokenPayload(token) {
   }
 }
 
+function hasLegacyMenuPath(menuList) {
+  if (!Array.isArray(menuList)) return false
+
+  for (const menu of menuList) {
+    if (menu?.path && !menu.path.startsWith('/')) {
+      return true
+    }
+    if (Array.isArray(menu?.children) && hasLegacyMenuPath(menu.children)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export const useUserStore = defineStore('user', () => {
   const cachedUserInfo = getLocalUserInfo()
+  const cachedToken = localStorage.getItem('parking_token') || ''
+  const shouldReloadMenus = Boolean(cachedToken) || hasLegacyMenuPath(cachedUserInfo?.menus)
   const user = ref(cachedUserInfo?.user || cachedUserInfo || null)
-  const token = ref(localStorage.getItem('parking_token') || '')
+  const token = ref(cachedToken)
   const roles = ref(cachedUserInfo?.roles || [])
   const permissions = ref(cachedUserInfo?.permissions || [])
-  const menus = ref(cachedUserInfo?.menus || [])
-  const permissionsLoaded = ref(Boolean(cachedUserInfo?.permissionsLoaded))
+  const menus = ref(shouldReloadMenus ? [] : (cachedUserInfo?.menus || []))
+  const permissionsLoaded = ref(Boolean(cachedUserInfo?.permissionsLoaded) && !shouldReloadMenus)
 
   const isLoggedIn = computed(() => !!token.value)
   const userName = computed(() => user.value?.username || '')
@@ -112,6 +215,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const res = await getUserInfo()
       if (res.code === 200) {
+        const routeMatcher = buildRouteMatcher()
         permissionsLoaded.value = false
         let permissionsFromApi = []
 
@@ -130,7 +234,7 @@ export const useUserStore = defineStore('user', () => {
         // 检查res.data是否是数组（菜单数据直接返回数组的情况）
         if (Array.isArray(res.data)) {
           // 如果是数组，说明直接返回了菜单数据，需要转换格式
-          menus.value = convertMenusToRouteFormat(res.data) || []
+          menus.value = convertMenusToRouteFormat(res.data, '', routeMatcher) || []
           const permissionsFromMenus = extractPermissionCodes(res.data)
           permissions.value = [...new Set([...permissionsFromApi, ...permissionsFromMenus])]
           roles.value = [] // 确保没有混入角色
@@ -144,7 +248,7 @@ export const useUserStore = defineStore('user', () => {
           if (Array.isArray(res.data.permissions)) {
             permissionsLoaded.value = true
           }
-          menus.value = convertMenusToRouteFormat(res.data.menus) || []
+          menus.value = convertMenusToRouteFormat(res.data.menus, '', routeMatcher) || []
         }
         
         // 【关键修复】如果是普通用户或没有权限，强制清空超级管理员缓存影响，保证不越权
