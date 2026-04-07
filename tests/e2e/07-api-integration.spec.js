@@ -71,7 +71,8 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      expect(data).toHaveProperty('records');
+      expect(Array.isArray(data.records)).toBe(true);
     });
 
     test('TC-API-004: 获取停车场列表数据格式正确', async ({ page }) => {
@@ -86,11 +87,9 @@ test.describe('API集成测试', () => {
       const data = await response.json();
       
       // 验证数据格式
-      if (data.code === 200 && data.data) {
-        expect(data.data).toHaveProperty('records');
-        expect(data.data).toHaveProperty('total');
-        expect(Array.isArray(data.data.records)).toBe(true);
-      }
+      expect(data).toHaveProperty('records');
+      expect(data).toHaveProperty('total');
+      expect(Array.isArray(data.records)).toBe(true);
     });
   });
 
@@ -112,7 +111,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      expect(Array.isArray(data)).toBe(true);
     });
   });
 
@@ -134,7 +133,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      expect(Array.isArray(data)).toBe(true);
     });
 
     test('TC-API-007: 获取计费规则API', async ({ page }) => {
@@ -149,7 +148,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      expect(Array.isArray(data)).toBe(true);
     });
   });
 
@@ -171,7 +170,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      expect(Array.isArray(data)).toBe(true);
     });
 
     test('TC-API-009: 获取角色列表API', async ({ page }) => {
@@ -186,7 +185,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      expect(Array.isArray(data)).toBe(true);
     });
 
     test('TC-API-010: 获取权限树API', async ({ page }) => {

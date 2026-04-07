@@ -64,7 +64,7 @@ jobs:
         run: |
           docker run -d -p 6379:6379 --name redis redis:alpine
           # 挂载后端的完整初始化脚本到 MySQL 容器的初始化目录中
-          docker run -d -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 -e MYSQL_DATABASE=parking_system -v ${{ github.workspace }}/backend/src/main/resources/sql/complete_init.sql:/docker-entrypoint-initdb.d/init.sql --name mysql mysql:8.0
+          docker run -d -p 3306:3306 -e MYSQL_ROOT_PASSWORD=123456 -e MYSQL_DATABASE=parking_system -v ${{ github.workspace }}/backend/src/main/resources/sql/complete_init.sql:/docker-entrypoint-initdb.d/init.sql --name mysql mysql:8.0 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
           
           # 等待 MySQL 真正就绪
           echo "Waiting for MySQL to be ready..."
@@ -86,7 +86,7 @@ jobs:
           # 等待后端服务就绪（健康检查）
           echo "Waiting for backend to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:8076/api/auth/login > /dev/null; then
+            if curl -sf http://localhost:8076/api/auth/captcha > /dev/null; then
               echo "Backend is up!"
               break
             fi
