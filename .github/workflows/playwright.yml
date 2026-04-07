@@ -170,6 +170,8 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            backend/backend.log
+            frontend.log
           retention-days: 30
 
       - name: Fail on quality gate

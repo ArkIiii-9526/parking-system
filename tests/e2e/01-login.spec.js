@@ -61,15 +61,15 @@ test.describe('登录功能测试', () => {
     
     test('TC-LOGIN-003: 使用错误的密码登录失败', async ({ page }) => {
       // 填写错误的密码
-      await page.fill('input[placeholder="请输入用户名"]', loginTestData.invalid.username);
+      await page.fill('input[placeholder="请输入用户名"]', loginTestData.valid.username);
       await page.fill('input[placeholder="请输入密码"]', loginTestData.invalid.password);
       
       // 点击登录按钮
       await page.click('.login-btn');
       
       // 验证错误提示
-      const messageText = await waitForMessage(page, 'error');
-      expect(messageText).toContain('失败');
+      const messageText = await page.locator('.el-message--error').textContent({ timeout: 5000 }).catch(() => '');
+      expect(messageText).toContain('用户名或密码错误');
       
       // 验证仍在登录页面
       await expect(page).toHaveURL(/.*\/login/);
@@ -84,8 +84,8 @@ test.describe('登录功能测试', () => {
       await page.click('.login-btn');
       
       // 验证错误提示
-      const messageText = await waitForMessage(page, 'error');
-      expect(messageText).toContain('失败');
+      const messageText = await page.locator('.el-message--error').textContent({ timeout: 5000 }).catch(() => '');
+      expect(messageText).toContain('用户名或密码错误');
     });
 
     test('TC-LOGIN-005: 空用户名验证', async ({ page }) => {
