@@ -76,13 +76,13 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests - 禁用自动启动，手动启动 */
-  // webServer: {
-  //   command: 'npm run preview',
-  //   url: 'http://localhost:8077',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120000,
-  // },
+  /* Run your local dev server before starting the tests - 恢复自动启动以保证测试环境稳定 */
+  webServer: {
+    command: 'npm run preview -- --port 8077',
+    url: 'http://localhost:8077',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
   
   /* 全局设置 */
   globalSetup: './tests/utils/global-setup.js',
