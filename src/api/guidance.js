@@ -18,6 +18,14 @@ export function getParkingNavigation(params) {
   })
 }
 
+export function getGuidanceMeta(params) {
+  return request({
+    url: '/guidance/meta',
+    method: 'get',
+    params
+  })
+}
+
 export function planGuidanceRoute(data) {
   return request({
     url: '/guidance/route/plan',
