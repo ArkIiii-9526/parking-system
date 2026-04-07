@@ -116,7 +116,7 @@ test.describe('系统管理测试', () => {
       // 导航到权限管理页面
       await page.click('.menu-group:has-text("系统管理") .menu-trigger');
       await page.waitForTimeout(500);
-      await page.click('.submenu-item:has-text("菜单管理")');
+      await page.click('.submenu-item:has-text("权限管理")');
       await page.waitForURL(/.*\/system\/permission/);
       await page.waitForSelector('.card-header:has-text("权限列表")', { timeout: 10000 });
     });

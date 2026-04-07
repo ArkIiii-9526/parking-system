@@ -128,7 +128,7 @@ test.describe('导航菜单测试', () => {
     });
 
     test('TC-NAV-016: 导航到权限管理页面', async ({ page }) => {
-      await clickSidebarSubmenu(page, '系统管理', '菜单管理');
+      await clickSidebarSubmenu(page, '系统管理', '权限管理');
       await page.waitForURL(/.*\/system\/permission/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('权限管理');
     });

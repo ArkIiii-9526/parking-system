@@ -6,6 +6,21 @@ import { test, expect } from '@playwright/test';
 import { login } from '../utils/test-helpers.js';
 import { loginTestData } from '../fixtures/test-data.js';
 
+function unwrapResponseBody(body) {
+  if (body && typeof body === 'object' && 'data' in body) {
+    return body.data;
+  }
+  return body;
+}
+
+function expectPagedResult(body) {
+  const payload = unwrapResponseBody(body);
+  expect(payload).toBeTruthy();
+  expect(payload).toHaveProperty('records');
+  expect(Array.isArray(payload.records)).toBe(true);
+  expect(payload).toHaveProperty('total');
+}
+
 test.describe('API集成测试', () => {
   
   test.describe('认证API测试', () => {
@@ -133,7 +148,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(Array.isArray(data)).toBe(true);
+      expectPagedResult(data);
     });
 
     test('TC-API-007: 获取计费规则API', async ({ page }) => {
@@ -148,7 +163,7 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(Array.isArray(data)).toBe(true);
+      expectPagedResult(data);
     });
   });
 
@@ -200,7 +215,10 @@ test.describe('API集成测试', () => {
       expect(response.status()).toBe(200);
       
       const data = await response.json();
-      expect(data).toHaveProperty('code');
+      const payload = unwrapResponseBody(data);
+      expect(Array.isArray(payload)).toBe(true);
+      expect(payload.length).toBeGreaterThan(0);
+      expect(payload[0]).toHaveProperty('permissionName');
     });
   });
 

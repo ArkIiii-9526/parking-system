@@ -22,6 +22,7 @@ function buildRouteMatcher() {
   const permissionPrefixPathMap = {}
   const suffixPathMap = {}
   const routePathSet = new Set()
+  const localChildrenMap = {}
   const routes = router.getRoutes()
 
   routes.forEach((route) => {
@@ -34,6 +35,17 @@ function buildRouteMatcher() {
           suffixPathMap[suffix] = []
         }
         suffixPathMap[suffix].push(route.path)
+      }
+    }
+
+    if (route.path && Array.isArray(route.children) && route.children.length > 0) {
+      const visibleChildren = route.children.filter((child) => child?.path && child.meta?.title && !child.meta?.hidden)
+      if (visibleChildren.length > 0) {
+        localChildrenMap[route.path] = visibleChildren.map((child) => ({
+          path: child.path,
+          name: child.name,
+          meta: child.meta || {}
+        }))
       }
     }
 
@@ -54,7 +66,7 @@ function buildRouteMatcher() {
     })
   })
 
-  return { permissionPathMap, permissionPrefixPathMap, suffixPathMap, routePathSet }
+  return { permissionPathMap, permissionPrefixPathMap, suffixPathMap, routePathSet, localChildrenMap }
 }
 
 function resolveMenuPath(menu, parentPath = '', routeMatcher) {
@@ -83,6 +95,22 @@ function resolveMenuPath(menu, parentPath = '', routeMatcher) {
   return normalizedByUrl
 }
 
+function buildSyntheticChildren(parentPath = '', routeMatcher) {
+  const localChildren = routeMatcher.localChildrenMap[parentPath] || []
+
+  return localChildren.map((child) => ({
+    path: child.path,
+    name: child.name,
+    meta: {
+      title: child.meta?.title,
+      icon: child.meta?.icon || 'Menu',
+      hidden: child.meta?.hidden === true,
+      permission: child.meta?.permission,
+      menuId: child.meta?.menuId
+    }
+  })).filter((child) => child.meta.title)
+}
+
 // 将后端菜单数据转换为前端路由格式
 function convertMenusToRouteFormat(menuList, parentPath = '', routeMatcher) {
   if (!Array.isArray(menuList)) return []
@@ -107,6 +135,14 @@ function convertMenusToRouteFormat(menuList, parentPath = '', routeMatcher) {
       const visibleChildren = menu.children.filter(child => child.status === 1)
       if (visibleChildren.length > 0) {
         route.children = convertMenusToRouteFormat(visibleChildren, route.path, routeMatcher)
+      }
+    }
+
+    // 兼容后端只返回父级菜单、但本地路由存在子页面的场景
+    if ((!route.children || route.children.length === 0) && routeMatcher.routePathSet.has(route.path)) {
+      const syntheticChildren = buildSyntheticChildren(route.path, routeMatcher)
+      if (syntheticChildren.length > 0) {
+        route.children = syntheticChildren
       }
     }
 
