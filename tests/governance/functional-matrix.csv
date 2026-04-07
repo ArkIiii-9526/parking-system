@@ -35,6 +35,7 @@ TC-VEH-007,车辆管理,表单,出场必填校验,UI_RENDER,逆向,P0,QA
 TC-VEH-008,车辆管理,表单,按车牌搜索,COMPLEX_INTERACTION,正向,P1,QA
 TC-VEH-009,车辆管理,表单,按状态筛选,COMPLEX_INTERACTION,正向,P1,QA
 TC-VEH-011,车辆管理,复杂交互,车辆详情查看,COMPLEX_INTERACTION,正向,P1,QA
+TC-VEH-012,车辆管理,接口契约,车位字段映射与展示,UI_RENDER,正向,P0,QA
 TC-SYS-001,系统管理,权限,用户管理列表加载,API_REQUEST,正向,P0,QA
 TC-SYS-005,系统管理,权限,角色管理权限变更,COMPLEX_INTERACTION,正向,P0,QA
 TC-SYS-008,系统管理,权限,权限树渲染,UI_RENDER,正向,P0,QA

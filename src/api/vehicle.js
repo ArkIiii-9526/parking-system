@@ -4,7 +4,7 @@ export function vehicleEntry(data) {
   return request({
     url: '/vehicle/entry',
     method: 'post',
-    data
+    params: data
   })
 }
 
@@ -12,7 +12,7 @@ export function vehicleExit(data) {
   return request({
     url: '/vehicle/exit',
     method: 'post',
-    data
+    params: data
   })
 }
 

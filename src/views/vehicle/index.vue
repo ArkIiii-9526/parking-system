@@ -56,7 +56,7 @@
               <el-option
                 v-for="s in availableSpaces"
                 :key="s.id"
-                :label="`${s.spaceCode} (${s.area})`"
+                :label="getSpaceOptionLabel(s)"
                 :value="s.id"
               />
             </el-select>
@@ -239,7 +239,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { vehicleEntry, vehicleExit, getActiveEntry, getVehicleRecordsByParking } from '@/api/vehicle'
-import { getAvailableSpaces } from '@/api/parkingSpace'
+import { getAvailableSpaces, getParkingSpacesByParking } from '@/api/parkingSpace'
 import { getParkingPage } from '@/api/parking'
 
 const loading = ref(false)
@@ -302,6 +302,32 @@ function calculateDuration(entryTime, exitTime) {
   return `${minutes}分钟`
 }
 
+function getSpaceCode(space) {
+  return space?.spaceCode || space?.spaceNumber || space?.code || space?.name || ''
+}
+
+function getSpaceArea(space) {
+  return space?.area || space?.sectionArea || space?.zone || space?.region || ''
+}
+
+function getSpaceOptionLabel(space) {
+  const spaceCode = getSpaceCode(space)
+  const spaceArea = getSpaceArea(space)
+
+  if (spaceCode && spaceArea) {
+    return `${spaceCode} (${spaceArea})`
+  }
+  return spaceCode || '未命名车位'
+}
+
+function normalizeSpace(space) {
+  return {
+    ...space,
+    spaceCode: getSpaceCode(space),
+    area: getSpaceArea(space)
+  }
+}
+
 async function loadParkingList() {
   try {
     const res = await getParkingPage({ pageNo: 1, pageSize: 100 })
@@ -326,10 +352,14 @@ async function loadAvailableSpaces(parkingId) {
   try {
     const res = await getAvailableSpaces(parkingId)
     if (res.code === 200) {
-      availableSpaces.value = res.data || []
+      const spaces = Array.isArray(res.data) ? res.data : []
+      availableSpaces.value = spaces.map(normalizeSpace)
+    } else {
+      availableSpaces.value = []
     }
   } catch (error) {
     console.error('加载可用车位失败:', error)
+    availableSpaces.value = []
   }
 }
 
@@ -345,14 +375,31 @@ async function loadData() {
     
     if (parkingList.value.length > 0) {
       params.parkingId = parkingList.value[0].id
-      
-      const res = await getVehicleRecordsByParking(params.parkingId, params)
-      if (res.code === 200) {
-        tableData.value = (res.data.records || []).map(record => ({
+
+      const [recordsResult, spacesResult] = await Promise.allSettled([
+        getVehicleRecordsByParking(params.parkingId, params),
+        getParkingSpacesByParking(params.parkingId)
+      ])
+
+      const recordResponse = recordsResult.status === 'fulfilled' ? recordsResult.value : null
+      const spaceResponse = spacesResult.status === 'fulfilled' ? spacesResult.value : null
+      const records = Array.isArray(recordResponse?.data)
+        ? recordResponse.data
+        : (recordResponse?.data?.records || [])
+      const spaces = Array.isArray(spaceResponse?.data)
+        ? spaceResponse.data.map(normalizeSpace)
+        : []
+      const spaceCodeMap = new Map(spaces.map(space => [space.id, space.spaceCode]))
+
+      if (recordResponse?.code === 200) {
+        tableData.value = records.map(record => ({
           ...record,
-          parkingName: parkingList.value.find(p => p.id === record.parkingId)?.name || ''
+          parkingName: parkingList.value.find(p => p.id === record.parkingId)?.name || '',
+          spaceCode: spaceCodeMap.get(record.spaceId) || getSpaceCode(record) || (record.spaceId ? `#${record.spaceId}` : '')
         }))
-        pagination.total = res.data.total || 0
+        pagination.total = Array.isArray(recordResponse.data)
+          ? records.length
+          : (recordResponse.data?.total || 0)
       }
     } else {
       // 当没有停车场数据时，清空表格
@@ -439,7 +486,11 @@ async function handleQuery() {
   try {
     const res = await getActiveEntry({ carNo: queryForm.carNo })
     if (res.code === 200) {
-      queryResult.value = res.data || null
+      if (Array.isArray(res.data)) {
+        queryResult.value = res.data.find(item => item?.carNo === queryForm.carNo && item?.status === 0) || null
+      } else {
+        queryResult.value = res.data || null
+      }
       if (!queryResult.value) {
         ElMessage.info('未找到该车辆的入场记录')
       }

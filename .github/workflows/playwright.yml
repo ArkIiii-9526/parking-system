@@ -125,7 +125,7 @@ jobs:
             elif [ "$stage" = "commit" ]; then
               echo "test_stage=commit" >> "$GITHUB_OUTPUT"
               echo "strict_gate=false" >> "$GITHUB_OUTPUT"
-              echo "test_command=npx playwright test tests/e2e/01-login.spec.js tests/e2e/02-dashboard.spec.js tests/e2e/03-navigation.spec.js tests/e2e/07-api-integration.spec.js tests/e2e/08-new-modules-smoke.spec.js" >> "$GITHUB_OUTPUT"
+              echo "test_command=npx playwright test tests/e2e/01-login.spec.js tests/e2e/02-dashboard.spec.js tests/e2e/03-navigation.spec.js tests/e2e/07-api-integration.spec.js tests/e2e/08-new-modules-smoke.spec.js tests/e2e/11-vehicle-contract.spec.js" >> "$GITHUB_OUTPUT"
             elif [ "$stage" = "nightly" ]; then
               echo "test_stage=nightly" >> "$GITHUB_OUTPUT"
               echo "strict_gate=true" >> "$GITHUB_OUTPUT"
@@ -142,7 +142,7 @@ jobs:
           else
             echo "test_stage=commit" >> "$GITHUB_OUTPUT"
             echo "strict_gate=false" >> "$GITHUB_OUTPUT"
-            echo "test_command=npx playwright test tests/e2e/01-login.spec.js tests/e2e/02-dashboard.spec.js tests/e2e/03-navigation.spec.js tests/e2e/07-api-integration.spec.js tests/e2e/08-new-modules-smoke.spec.js" >> "$GITHUB_OUTPUT"
+            echo "test_command=npx playwright test tests/e2e/01-login.spec.js tests/e2e/02-dashboard.spec.js tests/e2e/03-navigation.spec.js tests/e2e/07-api-integration.spec.js tests/e2e/08-new-modules-smoke.spec.js tests/e2e/11-vehicle-contract.spec.js" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Playwright tests
