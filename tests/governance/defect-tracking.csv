@@ -1,0 +1,2 @@
+defect_id,case_id,module,dimension,stage,reason_type,severity,status,owner,detected_at,due_at,resolution
+TTL-0001,TC-API-012,接口集成,异常处理,nightly,CODE_DEFECT,P1,OPEN,QA,2026-04-03T00:00:00.000Z,2026-04-04T00:00:00.000Z,

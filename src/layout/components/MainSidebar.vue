@@ -148,19 +148,23 @@ function getSingleMenuTarget(routeItem) {
 }
 
 function updateMenus() {
-  // 使用从后端获取的菜单数据
-  if (userStore.menus && userStore.menus.length > 0) {
-    menuRoutes.value = userStore.menus
-  } else {
-    // 如果没有获取到菜单，只显示默认基础菜单，不能回退到所有路由
-    menuRoutes.value = [
-      {
-        path: 'dashboard',
-        name: 'Dashboard',
-        meta: { title: '首页', icon: 'Odometer' }
-      }
-    ]
+  const homeMenu = {
+    path: '/dashboard',
+    name: 'Dashboard',
+    meta: { title: '首页', icon: 'Odometer' }
   }
+  const sourceMenus = Array.isArray(userStore.menus) ? userStore.menus : []
+  const normalizedMenus = sourceMenus.map((item) => {
+    if (item?.path === 'dashboard') {
+      return { ...item, path: '/dashboard' }
+    }
+    return item
+  })
+  const hasHome = normalizedMenus.some(item => item?.path === '/dashboard' || item?.name === 'Dashboard')
+  if (!hasHome) {
+    normalizedMenus.unshift(homeMenu)
+  }
+  menuRoutes.value = normalizedMenus.length > 0 ? normalizedMenus : [homeMenu]
 }
 
 function toggleCollapse() {

@@ -349,7 +349,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getParkingSpacePage, createParkingSpace, updateParkingSpace, deleteParkingSpace, reserveSpace, releaseSpace, getParkingSpacesByParking } from '@/api/parkingSpace'
 import { getParkingPage } from '@/api/parking'
@@ -485,6 +485,28 @@ async function loadData() {
     ElMessage.error('加载数据失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function loadDataSilently() {
+  if (!filterForm.parkingId) return
+
+  try {
+    const res = await getParkingSpacePage({
+      pageNo: pagination.pageNo,
+      pageSize: pagination.pageSize,
+      parkingId: filterForm.parkingId,
+      area: filterForm.area,
+      status: filterForm.status
+    })
+    if (res.code === 200) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
+    }
+
+    await loadSpaceStats()
+  } catch (error) {
+    console.error('静默加载数据失败:', error)
   }
 }
 
@@ -764,8 +786,23 @@ async function submitBatchAdd() {
   }
 }
 
+let refreshTimer = null
+
 onMounted(() => {
   loadParkingList()
+  
+  // 开启轮询，每5秒获取一次最新的车位状态，实现实时监控
+  refreshTimer = setInterval(() => {
+    if (filterForm.parkingId && !loading.value) {
+      loadDataSilently()
+    }
+  }, 5000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
 })
 </script>
 

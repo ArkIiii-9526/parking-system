@@ -20,7 +20,8 @@
     "test:system": "playwright test tests/e2e/06-system-management.spec.js",
     "test:api": "playwright test tests/e2e/07-api-integration.spec.js",
     "test:report": "playwright show-report",
-    "test:install": "playwright install"
+    "test:install": "playwright install",
+    "test:ttl-gate": "node scripts/ttl-quality-gate.js"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",

@@ -23,7 +23,7 @@ test.describe('UX Improvements & Backend Logic Verification', () => {
     token = body.data.token;
   });
 
-  test('TC-01: Backend JSR-303 Parameter Validation', async ({ request }) => {
+  test('TC-BACKEND-001: Backend JSR-303 Parameter Validation', async ({ request }) => {
     // Attempt to create a parking lot with totalSpaces = 0 (invalid per @Min(1))
     const res = await request.post('http://localhost:8076/api/parkings', {
       headers: { Authorization: `Bearer ${token}` },
@@ -42,7 +42,7 @@ test.describe('UX Improvements & Backend Logic Verification', () => {
     expect(body.message).toContain('总车位数至少为1');
   });
 
-  test('TC-03: Abnormal Occupation Fallback', async ({ request }) => {
+  test('TC-BACKEND-003: Abnormal Occupation Fallback', async ({ request }) => {
     // 1. Create a parking lot
     const pRes = await request.post('http://localhost:8076/api/parkings', {
       headers: { Authorization: `Bearer ${token}` },
@@ -89,7 +89,7 @@ test.describe('UX Improvements & Backend Logic Verification', () => {
     console.log('TC-03 Abnormal Entry created:', abnormalEntry.carNo);
   });
 
-  test('TC-02: Distributed Lock Anti-Oversell (Concurrency)', async ({ request }) => {
+  test('TC-BACKEND-002: Distributed Lock Anti-Oversell (Concurrency)', async ({ request }) => {
     // Create a new parking and space for concurrency test
     const pRes = await request.post('http://localhost:8076/api/parkings', {
       headers: { Authorization: `Bearer ${token}` },

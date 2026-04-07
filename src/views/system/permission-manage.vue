@@ -5,6 +5,14 @@
         <el-form-item label="权限名称">
           <el-input v-model="filterForm.name" placeholder="请输入权限名称" clearable />
         </el-form-item>
+        <el-form-item label="权限类型">
+          <el-select v-model="filterForm.type" placeholder="请选择类型" clearable style="width: 150px">
+            <el-option label="目录" value="DIR" />
+            <el-option label="菜单" value="MENU" />
+            <el-option label="按钮" value="BUTTON" />
+            <el-option label="接口" value="API" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">
             <el-icon><Search /></el-icon>
@@ -21,15 +29,19 @@
     <el-card class="table-card">
       <template #header>
         <div class="card-header">
-          <span>权限列表</span>
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>
-            新增权限
-          </el-button>
-          <el-button type="success" @click="handleRefreshCache">
-            <el-icon><Refresh /></el-icon>
-            刷新缓存
-          </el-button>
+          <div class="header-left">
+            <span>权限列表</span>
+          </div>
+          <div class="header-right">
+            <el-button type="primary" @click="handleAdd">
+              <el-icon><Plus /></el-icon>
+              新增权限
+            </el-button>
+            <el-button type="success" @click="handleRefreshCache">
+              <el-icon><Refresh /></el-icon>
+              刷新缓存
+            </el-button>
+          </div>
         </div>
       </template>
       
@@ -98,8 +110,8 @@
               :label="item.displayName"
               :value="item.id"
             >
-              <template #default="{ option }">
-                <span style="margin-left: 10px;">{{ option.label }}</span>
+              <template #default="{ item: optionItem }">
+                <span style="margin-left: 10px;">{{ item.displayName }}</span>
               </template>
             </el-option>
           </el-select>
@@ -167,7 +179,8 @@ const pagination = reactive({
 })
 
 const filterForm = reactive({
-  name: ''
+  name: '',
+  type: ''
 })
 
 const formData = reactive({
@@ -196,11 +209,15 @@ const formRules = {
 async function loadData() {
   loading.value = true
   try {
-    const res = await getPermissionList({
+    const params = {
       pageNo: pagination.pageNo,
       pageSize: pagination.pageSize,
       name: filterForm.name
-    })
+    }
+    if (filterForm.type) {
+      params.type = filterForm.type
+    }
+    const res = await getPermissionList(params)
     if (res.code === 200) {
       const list = res.data.records || res.data || []
       pagination.total = res.data.total !== undefined ? res.data.total : list.length
@@ -241,6 +258,7 @@ function handleSearch() {
 
 function handleReset() {
   filterForm.name = ''
+  filterForm.type = ''
   handleSearch()
 }
 
@@ -366,8 +384,20 @@ onMounted(() => {
       justify-content: space-between;
       align-items: center;
       
-      .el-button {
-        margin-left: 8px;
+      .header-left {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+        font-weight: 500;
+      }
+      
+      .header-right {
+        display: flex;
+        gap: 8px;
+        
+        .el-button {
+          margin-left: 0;
+        }
       }
     }
   }

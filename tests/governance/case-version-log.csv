@@ -1,0 +1,2 @@
+version,updated_at,change_scope,change_type,owner,notes
+v1.0.0,2026-04-03,TTL策略+功能矩阵,baseline,QA,建立UI/API/复杂交互三档TTL并完成矩阵首版

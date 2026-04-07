@@ -132,9 +132,24 @@
     <el-dialog
       v-model="payDialogVisible"
       title="支付停车费"
-      width="400px"
+      width="480px"
       :close-on-click-modal="false"
+      class="glass-dialog"
     >
+      <el-steps :active="1" finish-status="success" align-center style="margin-bottom: 24px;">
+        <el-step title="确认账单" icon="Document" />
+        <el-step title="选择方式" icon="Wallet" />
+        <el-step title="完成支付" icon="Check" />
+      </el-steps>
+      
+      <el-alert
+        title="温馨提示：支付完成后请在 15 分钟内离场，超时将重新计费。"
+        type="warning"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 20px;"
+      />
+
       <div class="pay-info">
         <div class="info-item">
           <span class="label">车牌号：</span>
