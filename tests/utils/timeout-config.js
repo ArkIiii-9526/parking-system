@@ -269,31 +269,15 @@ export function timeout(timeout, operationName = '操作') {
 export function wrapStepWithTimeout(stepFn, options = {}) {
   const {
     timeout: stepTimeout = TimeoutConfig.action.medium,
-    stepName = '测试步骤',
-    retries = 0,
+    stepName = '测试步骤'
   } = options;
   
   return async (...args) => {
-    let lastError;
-    
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        return await withTimeout(
-          stepFn(...args),
-          stepTimeout,
-          stepName
-        );
-      } catch (error) {
-        lastError = error;
-        
-        if (attempt < retries) {
-          console.log(`  ⚠️  ${stepName} 第 ${attempt + 1} 次尝试失败，正在重试...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    }
-    
-    throw lastError;
+    return withTimeout(
+      stepFn(...args),
+      stepTimeout,
+      stepName
+    );
   };
 }
 

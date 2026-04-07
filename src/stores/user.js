@@ -42,7 +42,7 @@ function buildRouteMatcher() {
       const visibleChildren = route.children.filter((child) => child?.path && child.meta?.title && !child.meta?.hidden)
       if (visibleChildren.length > 0) {
         localChildrenMap[route.path] = visibleChildren.map((child) => ({
-          path: child.path,
+          path: normalizeRoutePath(route.path, child.path),
           name: child.name,
           meta: child.meta || {}
         }))

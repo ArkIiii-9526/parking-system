@@ -56,6 +56,27 @@ function parseCsv(csvText) {
   })
 }
 
+function normalizeTestStatus(testNode, latestResult) {
+  const candidates = [
+    testNode?.status,
+    testNode?.outcome,
+    latestResult?.status,
+    testNode?.ok === true ? 'passed' : (testNode?.ok === false ? 'failed' : '')
+  ].filter(Boolean)
+
+  const rawStatus = String(candidates[0] || 'unknown').toLowerCase()
+  const passed = rawStatus === 'expected' || rawStatus === 'passed' || rawStatus === 'ok'
+  const skipped = rawStatus === 'skipped'
+  const normalizedStatus = passed ? 'passed' : (skipped ? 'skipped' : 'failed')
+
+  return {
+    rawStatus,
+    normalizedStatus,
+    passed,
+    skipped
+  }
+}
+
 function collectSpecsFromSuite(suite, tests = []) {
   if (!suite) return tests
   if (Array.isArray(suite.specs)) {
@@ -66,11 +87,15 @@ function collectSpecsFromSuite(suite, tests = []) {
         const errorText = latestResult?.error?.message || latestResult?.error?.stack || ''
         const attachments = Array.isArray(latestResult?.attachments) ? latestResult.attachments : []
         const screenshots = attachments.filter(a => a.name?.includes('screenshot') || a.contentType?.includes('image')).map(a => a.path).filter(Boolean)
+        const statusInfo = normalizeTestStatus(t, latestResult)
         tests.push({
           title: spec.title || t.title || '',
           file: spec.file || '',
           duration: Number(latestResult?.duration || 0),
-          status: t.outcome || latestResult?.status || 'unknown',
+          status: statusInfo.normalizedStatus,
+          rawStatus: statusInfo.rawStatus,
+          passed: statusInfo.passed,
+          skipped: statusInfo.skipped,
           error: errorText,
           screenshots
         })
@@ -130,13 +155,13 @@ function run() {
     const ttlType = policy?.ttl_type || (item.file.includes('api') ? 'API_REQUEST' : 'COMPLEX_INTERACTION')
     const ttlMs = ttlThresholds[ttlType] || ttlThresholds.COMPLEX_INTERACTION
     const ttlExpired = item.duration > ttlMs
-    const rootCause = ttlExpired || item.status !== 'expected' ? classifyRootCause(item.error) : ''
+    const rootCause = ttlExpired || !item.passed ? classifyRootCause(item.error) : ''
     return { ...item, caseId, ttlType, ttlMs, ttlExpired, rootCause }
   })
 
   const total = enriched.length
-  const passed = enriched.filter(t => t.status === 'expected').length
-  const failed = enriched.filter(t => t.status !== 'expected').length
+  const passed = enriched.filter(t => t.passed).length
+  const failed = enriched.filter(t => !t.passed && !t.skipped).length
   const ttlExpiredList = enriched.filter(t => t.ttlExpired)
   const coverageTotal = matrixRows.length
   const coveredCaseIds = new Set(enriched.map(t => t.caseId).filter(Boolean))
@@ -147,7 +172,7 @@ function run() {
   const screenshots = enriched.flatMap(t => t.screenshots.map(s => ({ title: t.title, path: s })))
 
   const defects = enriched
-    .filter(t => t.status !== 'expected' || t.ttlExpired)
+    .filter(t => (!t.passed && !t.skipped) || t.ttlExpired)
     .map((t, idx) => {
       const due = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       return {

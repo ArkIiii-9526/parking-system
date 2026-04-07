@@ -290,8 +290,8 @@ export async function enhancedWaitForMessage(page, type = 'success', options = {
  * @param {Object} options - 配置选项
  */
 export function testStep(stepName, stepFn, options = {}) {
-  const { timeout = TimeoutConfig.action.medium, retries = 0 } = options;
-  
+  const { timeout = TimeoutConfig.action.medium } = options;
+
   return wrapStepWithTimeout(
     async (...args) => {
       console.log(`  ▶️  执行步骤: ${stepName}`);
@@ -308,7 +308,7 @@ export function testStep(stepName, stepFn, options = {}) {
         throw error;
       }
     },
-    { timeout, stepName, retries }
+    { timeout, stepName }
   );
 }
 
