@@ -43,6 +43,37 @@ export async function logout(page) {
 }
 
 /**
+ * 展开侧边栏分组菜单
+ * @param {import('@playwright/test').Page} page
+ * @param {string} groupTitle
+ */
+export async function openSidebarGroup(page, groupTitle) {
+  const group = page.locator('.menu-group', {
+    has: page.locator('.menu-title', { hasText: groupTitle })
+  }).first();
+
+  await group.locator('.menu-trigger').click();
+  await page.waitForTimeout(300);
+}
+
+/**
+ * 点击侧边栏子菜单
+ * @param {import('@playwright/test').Page} page
+ * @param {string} groupTitle
+ * @param {string} itemTitle
+ */
+export async function clickSidebarSubmenu(page, groupTitle, itemTitle) {
+  const group = page.locator('.menu-group', {
+    has: page.locator('.menu-title', { hasText: groupTitle })
+  }).first();
+
+  await openSidebarGroup(page, groupTitle);
+  await group.locator('.submenu-item', {
+    has: page.locator('.submenu-title', { hasText: itemTitle })
+  }).first().click();
+}
+
+/**
  * 等待页面加载完成
  * @param {import('@playwright/test').Page} page - Playwright page 对象
  * @param {string} selector - 页面主要元素选择器
@@ -176,12 +207,13 @@ export function generateTestData(type = 'text') {
       return `test_${timestamp}@example.com`;
     case 'phone':
       return `1${Math.floor(Math.random() * 9 + 1)}${String(random).padStart(9, '0')}`;
-    case 'plate':
+    case 'plate': {
       const provinces = ['京', '沪', '津', '渝', '冀', '晋', '辽', '吉', '黑', '苏', '浙', '皖', '闽', '赣', '鲁', '豫', '鄂', '湘', '粤', '桂', '琼', '川', '贵', '云', '陕', '甘', '青', '宁', '新'];
       const province = provinces[Math.floor(Math.random() * provinces.length)];
       const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
       const number = String(Math.floor(Math.random() * 90000) + 10000);
       return `${province}${letter}${number}`;
+    }
     default:
       return `test_${timestamp}_${random}`;
   }

@@ -7,6 +7,10 @@ export const loginTestData = {
     username: 'admin',
     password: 'wrongpassword'
   },
+  specialChars: {
+    username: "' OR '1'='1",
+    password: "' OR '1'='1"
+  },
   empty: {
     username: '',
     password: ''
@@ -49,6 +53,7 @@ export const pageRoutes = {
   dashboard: '/dashboard',
   parking: '/parking',
   vehicle: '/vehicle',
+  simulation: '/simulation',
   system: '/system',
   login: '/login'
 };

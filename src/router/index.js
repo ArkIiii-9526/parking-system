@@ -42,31 +42,31 @@ const routes = [
         path: 'parking',
         name: 'Parking',
         component: () => import('@/views/parking/index.vue'),
-        meta: { title: '停车场管理', icon: 'Van', permission: 'parking:list' }
+        meta: { title: '停车场管理', icon: 'Van', permission: ['parking:list', 'parking:manage'] }
       },
       {
         path: 'parking-space',
         name: 'ParkingSpace',
         component: () => import('@/views/parking-space/index.vue'),
-        meta: { title: '停车位管理', icon: 'Grid', permission: 'space:view' }
+        meta: { title: '停车位管理', icon: 'Grid', permission: ['space:list', 'space:view'] }
       },
       {
           path: 'vehicle',
           name: 'Vehicle',
           component: () => import('@/views/vehicle/index.vue'),
-          meta: { title: '车辆进出管理', icon: 'Truck', permission: 'vehicle:view' }
+          meta: { title: '车辆进出管理', icon: 'Truck', permission: ['vehicle:manage', 'vehicle:entry-exit', 'vehicle:entry-exit:view'] }
         },
       {
         path: 'billing',
         name: 'Billing',
         component: () => import('@/views/billing/index.vue'),
-        meta: { title: '收费记录管理', icon: 'Money', permission: 'billing:view' }
+        meta: { title: '收费记录管理', icon: 'Money', permission: ['billing:manage', 'billing:record', 'billing:view'] }
       },
       {
         path: 'billing-rule',
         name: 'BillingRule',
         component: () => import('@/views/billing-rule/index.vue'),
-        meta: { title: '计费规则管理', icon: 'Setting', permission: 'billing:rule:view' }
+        meta: { title: '计费规则管理', icon: 'Setting', permission: ['billing:manage', 'billing:rule', 'billing:rule:view'] }
       },
       {
         path: 'parking-section',
@@ -128,7 +128,7 @@ const routes = [
         path: 'reservation',
         name: 'Reservation',
         component: () => import('@/views/reservation/index.vue'),
-        meta: { title: '预约管理', icon: 'Calendar', permission: 'reservation:view' }
+        meta: { title: '预约管理', icon: 'Calendar', permission: ['reservation:manage', 'reservation:list', 'reservation:view'] }
       },
       {
         path: 'system',
@@ -158,7 +158,7 @@ const routes = [
             path: 'config',
             name: 'SystemConfig',
             component: () => import('@/views/system/config-manage.vue'),
-            meta: { title: '系统配置', icon: 'Tools', permission: 'config:list' }
+            meta: { title: '系统配置', icon: 'Tools', permission: ['config:add', 'config:edit', 'config:delete'] }
           },
           {
             path: 'audit-log',
@@ -185,11 +185,6 @@ const router = createRouter({
 })
 
 export function resetRouter() {
-  const newRouter = createRouter({
-    history: createWebHashHistory(),
-    routes
-  })
-  
   // Vue 3 (Vue Router 4) 中应使用 removeRoute 和 addRoute 重置路由
   const currentRoutes = router.getRoutes()
   currentRoutes.forEach(route => {

@@ -4,7 +4,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { login } from '../utils/test-helpers.js';
-import { apiTestData, loginTestData } from '../fixtures/test-data.js';
+import { loginTestData } from '../fixtures/test-data.js';
 
 test.describe('API集成测试', () => {
   
@@ -28,7 +28,7 @@ test.describe('API集成测试', () => {
       
       // 验证响应格式
       expect(data).toHaveProperty('code');
-      expect(data).toHaveProperty('msg');
+      expect(data).toHaveProperty('message');
       expect(data).toHaveProperty('data');
     });
 
@@ -60,13 +60,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-003: 获取停车场列表API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/parking/page') || response.url().includes('/parking/list')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/parkings/page') && response.request().method() === 'GET'
       );
-      
-      // 导航到停车场管理页面
-      await page.click('.menu-title:has-text("停车场管理")');
+
+      await page.goto('/#/parking');
       
       // 等待响应
       const response = await apiResponse;
@@ -77,13 +75,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-004: 获取停车场列表数据格式正确', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/parking/page') || response.url().includes('/parking/list')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/parkings/page') && response.request().method() === 'GET'
       );
-      
-      // 导航到停车场管理页面
-      await page.click('.el-menu-item:has-text("停车场管理")');
+
+      await page.goto('/#/parking');
       
       // 等待响应
       const response = await apiResponse;
@@ -105,13 +101,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-005: 获取车辆记录API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/vehicle/record/page') || response.url().includes('/vehicle/record/list')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/vehicle/records/parking/') && response.request().method() === 'GET'
       );
-      
-      // 导航到车辆管理页面
-      await page.click('.menu-title:has-text("车辆进出管理")');
+
+      await page.goto('/#/vehicle');
       
       // 等待响应
       const response = await apiResponse;
@@ -129,13 +123,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-006: 获取收费记录API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/billing/page') || response.url().includes('/billing/list')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/billing/records/page') && response.request().method() === 'GET'
       );
-      
-      // 导航到收费记录页面
-      await page.click('.menu-title:has-text("收费记录管理")');
+
+      await page.goto('/#/billing');
       
       // 等待响应
       const response = await apiResponse;
@@ -146,13 +138,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-007: 获取计费规则API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/billing/rule/list') || response.url().includes('/billing/rule/page')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/billing/rules/page') && response.request().method() === 'GET'
       );
-      
-      // 导航到计费规则页面
-      await page.click('.menu-title:has-text("计费规则管理")');
+
+      await page.goto('/#/billing-rule');
       
       // 等待响应
       const response = await apiResponse;
@@ -170,15 +160,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-008: 获取用户列表API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/sys/user/page') || response.url().includes('/sys/user/list')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/sys/user/list') && response.request().method() === 'GET'
       );
-      
-      // 导航到用户管理页面
-      await page.click('.menu-title:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      await page.click('.submenu-title:has-text("用户管理")');
+
+      await page.goto('/#/system/user');
       
       // 等待响应
       const response = await apiResponse;
@@ -189,15 +175,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-009: 获取角色列表API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
-        response.url().includes('/sys/role/list') || response.url().includes('/sys/role/page')
+      const apiResponse = page.waitForResponse(response =>
+        response.url().includes('/sys/role/list') && response.request().method() === 'GET'
       );
-      
-      // 导航到角色管理页面
-      await page.click('.el-sub-menu:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      await page.click('.submenu-title:has-text("角色管理")');
+
+      await page.goto('/#/system/role');
       
       // 等待响应
       const response = await apiResponse;
@@ -208,15 +190,11 @@ test.describe('API集成测试', () => {
     });
 
     test('TC-API-010: 获取权限树API', async ({ page }) => {
-      // 监听API请求
-      const apiResponse = page.waitForResponse(response => 
+      const apiResponse = page.waitForResponse(response =>
         response.url().includes('/sys/permission/tree') || response.url().includes('/sys/permission/list')
       );
-      
-      // 导航到权限管理页面
-      await page.click('.el-sub-menu:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      await page.click('.submenu-title:has-text("权限管理")');
+
+      await page.goto('/#/system/permission');
       
       // 等待响应
       const response = await apiResponse;
@@ -262,7 +240,8 @@ test.describe('API集成测试', () => {
       // 尝试访问需要认证的API
       const response = await page.evaluate(async () => {
         try {
-          const res = await fetch('/api/parking/list', {
+          const res = await fetch('/api/parkings/page?pageNo=1&pageSize=10', {
+            method: 'GET',
             headers: {
               'Authorization': 'Bearer invalid_token'
             }

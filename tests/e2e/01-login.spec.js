@@ -4,7 +4,6 @@
  */
 import { test, expect } from '@playwright/test';
 import { loginTestData } from '../fixtures/test-data.js';
-import { login, waitForMessage } from '../utils/test-helpers.js';
 
 test.describe('登录功能测试', () => {
   
@@ -53,7 +52,9 @@ test.describe('登录功能测试', () => {
       // 验证 cookie 或 localStorage 中保存了登录信息
       const cookies = await context.cookies();
       const hasToken = cookies.some(cookie => cookie.name.includes('token'));
+      const hasLocalToken = await page.evaluate(() => Boolean(localStorage.getItem('parking_token')));
       // 注意：根据实际实现，可能需要检查不同的存储方式
+      expect(hasToken || hasLocalToken).toBe(true);
     });
   });
 
@@ -68,8 +69,9 @@ test.describe('登录功能测试', () => {
       await page.click('.login-btn');
       
       // 验证错误提示
-      const messageText = await page.locator('.el-message--error').textContent({ timeout: 5000 }).catch(() => '');
-      expect(messageText).toContain('用户名或密码错误');
+      await page.waitForSelector('.el-message--error', { timeout: 5000 });
+      const messages = await page.locator('.el-message--error').allInnerTexts();
+      expect(messages.some((text) => text.includes('用户名或密码错误'))).toBe(true);
       
       // 验证仍在登录页面
       await expect(page).toHaveURL(/.*\/login/);
@@ -84,8 +86,9 @@ test.describe('登录功能测试', () => {
       await page.click('.login-btn');
       
       // 验证错误提示
-      const messageText = await page.locator('.el-message--error').textContent({ timeout: 5000 }).catch(() => '');
-      expect(messageText).toContain('用户名或密码错误');
+      await page.waitForSelector('.el-message--error', { timeout: 5000 });
+      const messages = await page.locator('.el-message--error').allInnerTexts();
+      expect(messages.some((text) => text.includes('用户名或密码错误'))).toBe(true);
     });
 
     test('TC-LOGIN-005: 空用户名验证', async ({ page }) => {
@@ -203,7 +206,7 @@ test.describe('登录功能测试', () => {
       await expect(page.locator('.remember-me')).toBeVisible();
       
       // 验证忘记密码链接
-      await expect(page.locator('.forgot-link')).toBeVisible();
+      await expect(page.locator('.action-link', { hasText: '忘记密码?' })).toBeVisible();
       
       // 验证底部版权信息
       await expect(page.locator('.copyright')).toBeVisible();

@@ -39,6 +39,8 @@ service.interceptors.response.use(
     const responseData = response.data || {}
     const { code, msg, message, data } = responseData
     const errMsg = msg || message || '请求失败'
+    const requestUrl = response.config?.url || ''
+    const isLoginRequest = requestUrl.includes('/auth/login')
     
     // 检查 HTTP 状态码是否成功
     if (response.status >= 200 && response.status < 300) {
@@ -47,6 +49,10 @@ service.interceptors.response.use(
         if (code === 200) {
           return { code, msg: errMsg, data }
         } else if (code === 401) {
+          if (isLoginRequest) {
+            ElMessage.error(errMsg)
+            return Promise.reject(new Error(errMsg))
+          }
           const config = response.config
           if (!isRefreshing) {
             isRefreshing = true

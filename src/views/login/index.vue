@@ -306,7 +306,7 @@ async function fetchCaptcha() {
     const res = await getCaptcha()
     captchaImg.value = res.data.img
     captchaUuid.value = res.data.uuid
-  } catch (error) {
+  } catch (_error) {
     ElMessage.error('获取验证码失败')
   }
 }
@@ -343,11 +343,7 @@ async function handleLogin() {
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch (_error) {
-    ElMessage.error({
-      message: '登录失败，请检查用户名和密码',
-      type: 'error',
-      plain: true
-    })
+    return
   } finally {
     loading.value = false
   }
@@ -373,7 +369,7 @@ async function handleRegister() {
       plain: true
     })
     toggleForm()
-  } catch (error) {
+  } catch (_error) {
     fetchCaptcha() // 刷新验证码
   } finally {
     loading.value = false

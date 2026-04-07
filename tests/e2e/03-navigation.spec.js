@@ -3,8 +3,7 @@
  * 测试侧边栏导航和页面路由
  */
 import { test, expect } from '@playwright/test';
-import { login } from '../utils/test-helpers.js';
-import { pageRoutes } from '../fixtures/test-data.js';
+import { clickSidebarSubmenu, login, openSidebarGroup } from '../utils/test-helpers.js';
 
 test.describe('导航菜单测试', () => {
   
@@ -19,38 +18,38 @@ test.describe('导航菜单测试', () => {
       await expect(page.locator('.sidebar')).toBeVisible();
       
       // 验证菜单项存在（使用自定义菜单结构）
-      const menuItems = ['首页', '停车场管理', '停车位管理', '车辆进出管理', '收费记录管理', '计费规则管理'];
+      const menuItems = ['首页', '系统管理', '停车场管理', '计费管理', '预约管理', '数据分析', '车辆管理'];
       for (const item of menuItems) {
         await expect(page.locator(`.menu-title:has-text("${item}")`)).toBeVisible();
       }
     });
 
     test('TC-NAV-002: 导航到停车场管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("停车场管理")');
+      await clickSidebarSubmenu(page, '停车场管理', '停车场列表');
       await page.waitForURL(/.*\/parking/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('停车场管理');
     });
 
     test('TC-NAV-003: 导航到停车位管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("停车位管理")');
+      await clickSidebarSubmenu(page, '停车场管理', '停车位管理');
       await page.waitForURL(/.*\/parking-space/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('停车位管理');
     });
 
     test('TC-NAV-004: 导航到车辆进出管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("车辆进出管理")');
+      await clickSidebarSubmenu(page, '车辆管理', '进出记录');
       await page.waitForURL(/.*\/vehicle/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('车辆进出管理');
     });
 
     test('TC-NAV-005: 导航到收费记录管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("收费记录管理")');
+      await clickSidebarSubmenu(page, '计费管理', '收费记录');
       await page.waitForURL(/.*\/billing/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('收费记录管理');
     });
 
     test('TC-NAV-006: 导航到计费规则管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("计费规则管理")');
+      await clickSidebarSubmenu(page, '计费管理', '计费规则');
       await page.waitForURL(/.*\/billing-rule/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('计费规则管理');
     });
@@ -64,8 +63,7 @@ test.describe('导航菜单测试', () => {
       await expect(analyticsMenu).toBeVisible();
       
       // 点击展开
-      await page.click('.menu-title:has-text("数据分析")');
-      await page.waitForTimeout(500);
+      await openSidebarGroup(page, '数据分析');
       
       // 验证子菜单显示
       await expect(page.locator('.submenu-title:has-text("运营汇总")')).toBeVisible();
@@ -74,47 +72,32 @@ test.describe('导航菜单测试', () => {
 
     test('TC-NAV-008: 导航到运营汇总页面', async ({ page }) => {
       // 展开数据分析菜单
-      await page.click('.menu-title:has-text("数据分析")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("运营汇总")');
+      await clickSidebarSubmenu(page, '数据分析', '运营汇总');
       await page.waitForURL(/.*\/analytics\/summary/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('运营汇总');
     });
 
     test('TC-NAV-009: 导航到利用率分析页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("数据分析")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("利用率分析")');
+      await clickSidebarSubmenu(page, '数据分析', '利用率分析');
       await page.waitForURL(/.*\/analytics\/utilization/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('利用率分析');
     });
 
     test('TC-NAV-010: 导航到收入分析页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("数据分析")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("收入分析")');
+      await clickSidebarSubmenu(page, '数据分析', '收入分析');
       // URL 可能是 /analytics/income 或 /analytics/revenue
       await page.waitForURL(/.*\/analytics\/(income|revenue)/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('收入');
     });
 
     test('TC-NAV-011: 导航到周转率分析页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("数据分析")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("周转率分析")');
+      await clickSidebarSubmenu(page, '数据分析', '周转率分析');
       await page.waitForURL(/.*\/analytics\/turnover/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('周转率分析');
     });
 
     test('TC-NAV-012: 导航到趋势分析页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("数据分析")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("趋势分析")');
+      await clickSidebarSubmenu(page, '数据分析', '趋势分析');
       await page.waitForURL(/.*\/analytics\/trend/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('趋势分析');
     });
@@ -126,45 +109,32 @@ test.describe('导航菜单测试', () => {
       const systemMenu = page.locator('.menu-group:has(.menu-title:has-text("系统管理"))');
       await expect(systemMenu).toBeVisible();
       
-      await page.click('.menu-title:has-text("系统管理")');
-      await page.waitForTimeout(500);
+      await openSidebarGroup(page, '系统管理');
       
       await expect(page.locator('.submenu-title:has-text("用户管理")')).toBeVisible();
       await expect(page.locator('.submenu-title:has-text("角色管理")')).toBeVisible();
     });
 
     test('TC-NAV-014: 导航到用户管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("用户管理")');
+      await clickSidebarSubmenu(page, '系统管理', '用户管理');
       await page.waitForURL(/.*\/system\/user/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('用户管理');
     });
 
     test('TC-NAV-015: 导航到角色管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("角色管理")');
+      await clickSidebarSubmenu(page, '系统管理', '角色管理');
       await page.waitForURL(/.*\/system\/role/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('角色管理');
     });
 
     test('TC-NAV-016: 导航到权限管理页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("权限管理")');
+      await clickSidebarSubmenu(page, '系统管理', '菜单管理');
       await page.waitForURL(/.*\/system\/permission/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('权限管理');
     });
 
     test('TC-NAV-017: 导航到系统配置页面', async ({ page }) => {
-      await page.click('.menu-title:has-text("系统管理")');
-      await page.waitForTimeout(500);
-      
-      await page.click('.submenu-title:has-text("系统配置")');
+      await page.goto('/#/system/config');
       await page.waitForURL(/.*\/system\/config/, { timeout: 5000 });
       await expect(page.locator('h2.page-title')).toContainText('系统配置');
     });
@@ -173,22 +143,15 @@ test.describe('导航菜单测试', () => {
   test.describe('其他页面导航测试', () => {
     
     test('TC-NAV-018: 导航到停车场分区页面', async ({ page }) => {
-      // 先导航到停车场管理
-      await page.click('.menu-title:has-text("停车场管理")');
-      await page.waitForURL(/.*\/parking/, { timeout: 5000 });
-      
-      // 验证页面加载
-      await expect(page.locator('h2.page-title')).toContainText('停车场管理');
+      await clickSidebarSubmenu(page, '停车场管理', '区域管理');
+      await page.waitForURL(/.*\/parking-section/, { timeout: 5000 });
+      await expect(page.locator('h2.page-title')).toContainText('停车场分区');
     });
 
     test('TC-NAV-019: 导航到模拟数据页面', async ({ page }) => {
-      // 直接访问模拟数据页面URL
-      await page.goto('/#/mock-data');
-      await page.waitForTimeout(2000);
-      
-      // 验证页面加载（检查页面内容、标题或body）
-      const hasContent = await page.locator('.page-content, .main-content, h2, body').isVisible().catch(() => false);
-      expect(hasContent).toBe(true);
+      await page.goto('/#/simulation');
+      await page.waitForURL(/.*\/simulation/, { timeout: 5000 });
+      await expect(page.locator('h2.page-title')).toContainText('模拟数据');
     });
   });
 
@@ -196,7 +159,7 @@ test.describe('导航菜单测试', () => {
     
     test('TC-NAV-020: 面包屑正确显示当前页面', async ({ page }) => {
       // 导航到停车场管理页面
-      await page.click('.menu-title:has-text("停车场管理")');
+      await clickSidebarSubmenu(page, '停车场管理', '停车场列表');
       await page.waitForURL(/.*\/parking/, { timeout: 5000 });
       
       // 等待页面加载
@@ -243,7 +206,7 @@ test.describe('导航菜单测试', () => {
       // 先登录（如果已经登录则跳过）
       try {
         await login(page);
-      } catch (e) {
+      } catch (_error) {
         // 如果登录失败，可能已经登录了，直接继续
         console.log('Login skipped or failed, continuing...');
       }
