@@ -47,6 +47,41 @@ async function seedAuthenticatedSession(page) {
   }, mockSession)
 }
 
+async function mockAuthenticatedUserApis(page, overrides = {}) {
+  const session = {
+    ...mockSession,
+    ...overrides,
+    user: {
+      ...mockSession.user,
+      ...(overrides.user || {})
+    },
+    roles: overrides.roles || mockSession.roles,
+    permissions: overrides.permissions || mockSession.permissions,
+    menus: overrides.menus || mockSession.menus
+  }
+
+  await page.route('**/sys/user/menus**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: buildOkResponse({
+        user: session.user,
+        roles: session.roles,
+        permissions: session.permissions,
+        menus: session.menus
+      })
+    })
+  })
+
+  await page.route(`**/sys/user/${session.user.userId}/permissions**`, async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: buildOkResponse(session.permissions)
+    })
+  })
+}
+
 async function mockVehiclePageApis(page, overrides = {}) {
   const parkings = overrides.parkings ?? [mockParking]
   const availableSpaces = overrides.availableSpaces ?? [mockSpace]
@@ -104,6 +139,7 @@ async function selectParkingAndSpace(page) {
 test.describe('车辆页前后端契约测试', () => {
   test.beforeEach(async ({ page }) => {
     await seedAuthenticatedSession(page)
+    await mockAuthenticatedUserApis(page)
     await mockVehiclePageApis(page)
   })
 
