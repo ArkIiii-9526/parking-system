@@ -45,7 +45,7 @@
         <el-table-column prop="email" label="邮箱" width="180" />
         <el-table-column prop="roleNames" label="角色" min-width="150">
           <template #default="{ row }">
-            <el-tag v-for="role in (row.roleNames || [])" :key="role" size="small" class="role-tag">
+            <el-tag v-for="role in row.roleNames" :key="role" size="small" class="role-tag">
               {{ role }}
             </el-tag>
           </template>
@@ -163,6 +163,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPageList, createUser, updateUser, deleteUser, updateUserStatus, assignUserRole, getUserRoles } from '@/api/user'
 import { getRoleList } from '@/api/role'
+import { normalizeRole } from '@/utils/system-manage'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -225,6 +226,28 @@ const formRules = {
   ]
 }
 
+function normalizeRoleNames(roleNames) {
+  if (Array.isArray(roleNames)) {
+    return roleNames.filter(Boolean)
+  }
+
+  if (typeof roleNames === 'string') {
+    return roleNames
+      .split(/[,，]/)
+      .map(item => item.trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
+
+function normalizeUser(user = {}) {
+  return {
+    ...user,
+    roleNames: normalizeRoleNames(user.roleNames)
+  }
+}
+
 function formatTime(time) {
   if (!time) return '-'
   return new Date(time).toLocaleString('zh-CN')
@@ -242,14 +265,15 @@ async function loadData() {
     })
     if (res.code === 200) {
       const list = res.data.records || res.data || []
+      const normalizedList = list.map(item => normalizeUser(item))
       pagination.total = res.data.total !== undefined ? res.data.total : list.length
       
       if (!res.data.records && Array.isArray(res.data)) {
         const start = (pagination.pageNo - 1) * pagination.pageSize
         const end = start + pagination.pageSize
-        tableData.value = list.slice(start, end)
+        tableData.value = normalizedList.slice(start, end)
       } else {
-        tableData.value = list
+        tableData.value = normalizedList
       }
     }
   } catch (error) {
@@ -264,7 +288,7 @@ async function loadRoles() {
   try {
     const res = await getRoleList()
     if (res.code === 200) {
-      allRoles.value = res.data || []
+      allRoles.value = (res.data || []).map(item => normalizeRole(item))
     }
   } catch (error) {
     console.error('加载角色列表失败:', error)
@@ -322,7 +346,7 @@ async function handleAssignRole(row) {
   try {
     const res = await getUserRoles(row.userId)
     if (res.code === 200) {
-      selectedRoles.value = res.data || []
+      selectedRoles.value = (res.data || []).map(item => Number(item))
     }
   } catch (_) {
     ElMessage.error('获取用户角色失败')

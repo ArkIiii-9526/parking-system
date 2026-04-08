@@ -58,7 +58,7 @@
         <el-table-column prop="path" label="路由路径" width="180" />
         <el-table-column prop="icon" label="图标" width="100" align="center">
           <template #default="{ row }">
-            <el-icon v-if="row.icon"><component :is="row.icon" /></el-icon>
+            <el-icon v-if="row.icon"><component :is="getPermissionIcon(row.icon)" /></el-icon>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -154,6 +154,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPermissionList, createPermission, updatePermission, deletePermission, refreshPermissionCache } from '@/api/permission'
+import { resolveElementIcon } from '@/utils/elementIcon'
 import {
   buildPermissionPayload,
   flattenPermissionTree,
@@ -204,6 +205,10 @@ const formRules = {
   code: [
     { required: true, message: '请输入权限编码', trigger: 'blur' }
   ]
+}
+
+function getPermissionIcon(iconName) {
+  return resolveElementIcon(iconName, 'Menu')
 }
 
 async function loadData() {

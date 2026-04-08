@@ -21,7 +21,7 @@
           <el-input v-model="filterForm.carNo" placeholder="请输入车牌号" clearable />
         </el-form-item>
         <el-form-item label="支付状态">
-          <el-select v-model="filterForm.status" placeholder="请选择状态" clearable>
+          <el-select v-model="filterForm.paymentStatus" placeholder="请选择状态" clearable>
             <el-option label="未支付" :value="0" />
             <el-option label="已支付" :value="1" />
             <el-option label="部分支付" :value="2" />
@@ -82,20 +82,20 @@
             {{ calculateDuration(row.entryTime, row.exitTime) }}
           </template>
         </el-table-column>
-        <el-table-column prop="totalAmount" label="应收金额" width="100" align="right">
+        <el-table-column prop="feeAmount" label="应收金额" width="100" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ row.totalAmount?.toFixed(2) }}</span>
+            <span class="amount">¥{{ formatAmount(row.feeAmount) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="actualAmount" label="实收金额" width="100" align="right">
           <template #default="{ row }">
-            <span class="amount">¥{{ row.actualAmount?.toFixed(2) || '0.00' }}</span>
+            <span class="amount">¥{{ formatAmount(row.actualAmount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="支付状态" width="100" align="center">
+        <el-table-column prop="paymentStatus" label="支付状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">
-              {{ getStatusText(row.status) }}
+            <el-tag :type="getStatusType(row.paymentStatus)">
+              {{ getStatusText(row.paymentStatus) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -106,7 +106,7 @@
         </el-table-column>
         <el-table-column label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.status === 0" v-permission="'billing:pay'" type="primary" link @click="handlePay(row)">
+            <el-button v-if="row.status === 1 && row.paymentStatus === 0" v-permission="'billing:pay'" type="primary" link @click="handlePay(row)">
               支付
             </el-button>
             <el-button v-permission="'billing:view'" type="info" link @click="handleDetail(row)">
@@ -161,7 +161,7 @@
         </div>
         <div class="info-item">
           <span class="label">应付金额：</span>
-          <span class="value amount">¥{{ currentRecord.totalAmount?.toFixed(2) }}</span>
+          <span class="value amount">¥{{ formatAmount(currentRecord.feeAmount) }}</span>
         </div>
       </div>
       <el-form :model="payForm" :rules="payRules" ref="payFormRef" label-width="100px">
@@ -203,17 +203,17 @@
         <el-descriptions-item label="出场时间">{{ formatTime(currentRecord.exitTime) }}</el-descriptions-item>
         <el-descriptions-item label="停车时长">{{ calculateDuration(currentRecord.entryTime, currentRecord.exitTime) }}</el-descriptions-item>
         <el-descriptions-item label="应付金额">
-          <span class="amount">¥{{ currentRecord.totalAmount?.toFixed(2) }}</span>
+          <span class="amount">¥{{ formatAmount(currentRecord.feeAmount) }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="实付金额">
-          <span class="amount">¥{{ currentRecord.actualAmount?.toFixed(2) || '0.00' }}</span>
+          <span class="amount">¥{{ formatAmount(currentRecord.actualAmount) }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="优惠金额">
-          <span class="amount">¥{{ (currentRecord.discountAmount || 0).toFixed(2) }}</span>
+          <span class="amount">¥{{ formatAmount(currentRecord.discountAmount) }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="支付状态">
-          <el-tag :type="getStatusType(currentRecord.status)">
-            {{ getStatusText(currentRecord.status) }}
+          <el-tag :type="getStatusType(currentRecord.paymentStatus)">
+            {{ getStatusText(currentRecord.paymentStatus) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="支付方式">{{ getPaymentMethodText(currentRecord.paymentMethod) }}</el-descriptions-item>
@@ -228,6 +228,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getBillingRecordsPage, payBillingRecord, exportBillingRecords, getDailyStatistics } from '@/api/billing'
+import { hasPermission } from '@/utils/hasPermission'
 
 const loading = ref(false)
 const payLoading = ref(false)
@@ -240,11 +241,16 @@ const dailyLoading = ref(false)
 const todayStr = new Date().toISOString().split('T')[0]
 
 async function loadDailySummary() {
+  if (!hasPermission('billing:statistics')) {
+    dailySummary.value = null
+    return
+  }
+
   dailyLoading.value = true
   try {
     const res = await getDailyStatistics({ date: String(todayStr) })
     if (res.code === 200 && res.data) {
-      dailySummary.value = res.data
+      dailySummary.value = normalizeDailySummary(res.data)
     } else {
       dailySummary.value = null
     }
@@ -276,7 +282,7 @@ const payRules = {
 
 const filterForm = reactive({
   carNo: '',
-  status: null
+  paymentStatus: null
 })
 
 function formatTime(time) {
@@ -299,6 +305,10 @@ function calculateDuration(entryTime, exitTime) {
   return `${minutes}分钟`
 }
 
+function formatAmount(amount) {
+  return Number(amount || 0).toFixed(2)
+}
+
 function getStatusType(status) {
   const types = { 0: 'warning', 1: 'success', 2: 'info' }
   return types[status] || 'info'
@@ -311,7 +321,33 @@ function getStatusText(status) {
 
 function getPaymentMethodText(method) {
   const texts = { wechat: '微信支付', alipay: '支付宝', cash: '现金', card: '银行卡' }
-  return texts[method] || '-'
+  return texts[method] || method || '-'
+}
+
+function normalizeBillingRecord(record) {
+  const feeAmount = Number(record.feeAmount ?? record.totalAmount ?? 0)
+  const actualAmount = Number(record.actualAmount ?? 0)
+  const discountAmount = Number(record.discountAmount ?? Math.max(feeAmount - actualAmount, 0))
+
+  return {
+    ...record,
+    parkingName: record.parkingName || '',
+    feeAmount,
+    totalAmount: feeAmount,
+    actualAmount,
+    discountAmount,
+    transactionNo: record.transactionNo || record.paymentTransactionNo || '',
+    paymentStatus: record.paymentStatus ?? 0
+  }
+}
+
+function normalizeDailySummary(summary) {
+  if (!summary) return null
+  return {
+    ...summary,
+    totalAmount: Number(summary.totalAmount ?? summary.totalIncome ?? 0),
+    totalCount: summary.totalCount ?? summary.totalTransactions ?? 0
+  }
 }
 
 async function loadData() {
@@ -321,21 +357,18 @@ async function loadData() {
       pageNo: pagination.pageNo,
       pageSize: pagination.pageSize,
       carNo: filterForm.carNo,
-      status: filterForm.status,
+      paymentStatus: filterForm.paymentStatus,
       startTime: dateRange.value ? dateRange.value[0] : null,
       endTime: dateRange.value ? dateRange.value[1] : null
     }
     
     const res = await getBillingRecordsPage(params)
     if (res.code === 200) {
-      tableData.value = (res.data.records || []).map(record => ({
-        ...record,
-        parkingName: record.parkingName || ''
-      }))
+      tableData.value = (res.data.records || []).map(normalizeBillingRecord)
       pagination.total = res.data.total || 0
       
       totalRevenue.value = tableData.value
-        .filter(r => r.status === 1)
+        .filter(r => r.paymentStatus === 1)
         .reduce((sum, r) => sum + (r.actualAmount || 0), 0)
     }
   } catch (error) {
@@ -353,7 +386,7 @@ function handleSearch() {
 
 function handleReset() {
   filterForm.carNo = ''
-  filterForm.status = null
+  filterForm.paymentStatus = null
   dateRange.value = null
   handleSearch()
 }
@@ -371,7 +404,7 @@ function handleCurrentChange(page) {
 function handlePay(row) {
   currentRecord.value = row
   payForm.paymentMethod = 'wechat'
-  payForm.actualAmount = row.totalAmount
+  payForm.actualAmount = row.feeAmount
   payForm.transactionNo = ''
   payDialogVisible.value = true
 }
@@ -410,7 +443,7 @@ async function handleExport() {
   try {
     const params = {
       carNo: filterForm.carNo,
-      status: filterForm.status,
+      paymentStatus: filterForm.paymentStatus,
       startTime: dateRange.value ? dateRange.value[0] : null,
       endTime: dateRange.value ? dateRange.value[1] : null
     }

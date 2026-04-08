@@ -549,6 +549,16 @@ function handleAdd() {
   })
 }
 
+function applyParkingFormData(parking = {}) {
+  formData.id = parking.id ?? null
+  formData.name = parking.name ?? ''
+  formData.address = parking.address ?? ''
+  formData.longitude = parking.longitude ?? null
+  formData.latitude = parking.latitude ?? null
+  formData.totalSpaces = parking.totalSpaces ?? 100
+  formData.status = parking.status ?? 1
+}
+
 async function handleDetail(row) {
   parkingApiStats.value = null
   try {
@@ -572,18 +582,10 @@ async function handleDetail(row) {
 
 async function handleEdit(row) {
   dialogType.value = 'edit'
-  try {
-    const res = await getParkingDetail(row.id)
-    if (res.code === 200) {
-      Object.assign(formData, res.data)
-      dialogVisible.value = true
-      nextTick(() => {
-        initMap()
-      })
-    }
-  } catch (_) {
-    ElMessage.error('获取详情失败')
-  }
+  applyParkingFormData(row)
+  dialogVisible.value = true
+  await nextTick()
+  initMap()
 }
 
 function handleDelete(row) {

@@ -33,3 +33,20 @@ export function clearSimulation(parkingId) {
     method: 'post'
   })
 }
+
+// 获取模拟数据概览
+export function getSimulationOverview(params) {
+  return request({
+    url: '/simulation/overview',
+    method: 'get',
+    params
+  })
+}
+
+// 获取停车场模拟详情
+export function getSimulationParkingDetail(parkingId) {
+  return request({
+    url: `/simulation/parking/${parkingId}`,
+    method: 'get'
+  })
+}

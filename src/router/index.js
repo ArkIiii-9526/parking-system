@@ -54,13 +54,13 @@ const routes = [
           path: 'vehicle',
           name: 'Vehicle',
           component: () => import('@/views/vehicle/index.vue'),
-          meta: { title: '车辆进出管理', icon: 'Truck', permission: ['vehicle:manage', 'vehicle:entry-exit', 'vehicle:entry-exit:view'] }
+          meta: { title: '车辆进出管理', icon: 'Van', permission: ['vehicle:manage', 'vehicle:entry-exit', 'vehicle:entry-exit:view'] }
         },
       {
         path: 'billing',
         name: 'Billing',
         component: () => import('@/views/billing/index.vue'),
-        meta: { title: '收费记录管理', icon: 'Money', permission: ['billing:manage', 'billing:record', 'billing:view'] }
+        meta: { title: '收费记录管理', icon: 'Money', permission: ['billing:manage', 'billing:record', 'billing:view', 'billing:statistics'] }
       },
       {
         path: 'billing-rule',
@@ -78,7 +78,7 @@ const routes = [
         path: 'analytics',
         name: 'Analytics',
         redirect: '/analytics/summary',
-        meta: { title: '数据分析', icon: 'TrendCharts' },
+        meta: { title: '数据分析', icon: 'TrendCharts', permission: 'analytics:manage' },
         children: [
           {
             path: 'summary',
@@ -122,7 +122,7 @@ const routes = [
         path: 'guidance',
         name: 'Guidance',
         component: () => import('@/views/guidance/index.vue'),
-        meta: { title: '停车引导', icon: 'Guide' }
+        meta: { title: '停车引导', icon: 'Guide', permission: 'guidance:view' }
       },
       {
         path: 'reservation',
@@ -158,7 +158,7 @@ const routes = [
             path: 'config',
             name: 'SystemConfig',
             component: () => import('@/views/system/config-manage.vue'),
-            meta: { title: '系统配置', icon: 'Tools', permission: ['config:add', 'config:edit', 'config:delete'] }
+            meta: { title: '系统配置', icon: 'Tools', permission: ['config:list', 'config:add', 'config:edit', 'config:delete'] }
           },
           {
             path: 'audit-log',

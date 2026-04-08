@@ -43,7 +43,7 @@
               >
                 <span class="menu-icon">
                   <el-icon v-if="route.meta?.icon">
-                    <component :is="route.meta.icon" />
+                    <component :is="getMenuIcon(route.meta.icon)" />
                   </el-icon>
                 </span>
                 <span v-if="!isCollapse" class="menu-title">{{ route.meta?.title }}</span>
@@ -62,7 +62,7 @@
                 >
                   <span class="menu-icon">
                     <el-icon v-if="route.meta?.icon">
-                      <component :is="route.meta.icon" />
+                      <component :is="getMenuIcon(route.meta.icon)" />
                     </el-icon>
                   </span>
                   <span v-if="!isCollapse" class="menu-title">{{ route.meta?.title }}</span>
@@ -91,21 +91,6 @@
       </el-scrollbar>
     </div>
 
-    <!-- 底部区域 -->
-    <div class="sidebar-footer">
-      <div class="user-mini" v-if="!isCollapse">
-        <el-avatar :size="36" :src="userStore.avatar" class="user-avatar">
-          <el-icon><User /></el-icon>
-        </el-avatar>
-        <div class="user-info">
-          <span class="user-name">{{ userStore.userName }}</span>
-          <span class="user-role">管理员</span>
-        </div>
-      </div>
-      <button v-else class="footer-btn" @click="handleLogout">
-        <el-icon><SwitchButton /></el-icon>
-      </button>
-    </div>
   </aside>
 </template>
 
@@ -113,6 +98,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { resolveElementIcon } from '@/utils/elementIcon'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -128,6 +114,10 @@ const activeMenu = computed(() => {
   }
   return path
 })
+
+function getMenuIcon(iconName) {
+  return resolveElementIcon(iconName, 'Menu')
+}
 
 function getMenuExpandKey(routeItem, routeIndex = 0) {
   const baseKey = routeItem.name || routeItem.meta?.menuId || routeItem.path || 'menu'
@@ -185,10 +175,6 @@ function toggleMenu(routeItem, routeIndex = 0) {
     
     expandedMenus.value.push(expandKey)
   }
-}
-
-function handleLogout() {
-  userStore.logout()
 }
 
 onMounted(() => {
@@ -466,62 +452,6 @@ const emit = defineEmits(['collapse'])
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
-}
-
-// 底部区域
-.sidebar-footer {
-  padding: var(--space-4);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  
-  .user-mini {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-2);
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: var(--radius-lg);
-    
-    .user-avatar {
-      border: 2px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .user-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      
-      .user-name {
-        font-size: var(--text-sm);
-        font-weight: var(--font-medium);
-        color: var(--text-primary);
-      }
-      
-      .user-role {
-        font-size: var(--text-xs);
-        color: var(--text-muted);
-      }
-    }
-  }
-  
-  .footer-btn {
-    width: 100%;
-    padding: var(--space-3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-lg);
-    color: var(--text-tertiary);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    
-    &:hover {
-      background: rgba(244, 63, 94, 0.1);
-      border-color: rgba(244, 63, 94, 0.3);
-      color: var(--accent-400);
-    }
-  }
 }
 
 // 响应式

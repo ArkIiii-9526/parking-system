@@ -10,7 +10,7 @@
         @contextmenu.prevent="openMenu(tag, $event)"
       >
         <el-icon v-if="tag.meta.icon" class="tag-icon">
-          <component :is="tag.meta.icon" />
+          <component :is="getTagIcon(tag.meta.icon)" />
         </el-icon>
         {{ tag.meta.title }}
         <el-icon v-if="!tag.meta.affix" class="close-icon" @click.prevent.stop="closeTag(tag)">
@@ -42,6 +42,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { resolveElementIcon } from '@/utils/elementIcon'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,6 +56,10 @@ const selectedTag = ref({})
 const isAffix = computed(() => {
   return selectedTag.value.meta && selectedTag.value.meta.affix
 })
+
+function getTagIcon(iconName) {
+  return resolveElementIcon(iconName, 'Menu')
+}
 
 function isActive(tag) {
   return tag.path === route.path

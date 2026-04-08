@@ -208,6 +208,7 @@ import { getVehicleRecordsByParking } from '@/api/vehicle'
 import { exportComprehensive } from '@/api/analytics'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { hasPermission } from '@/utils/hasPermission'
 
 const router = useRouter()
 const animated = ref(false)
@@ -362,16 +363,21 @@ async function loadDashboardData() {
     }
     
     // 获取营收数据
-    try {
-      const today = new Date()
-      const formattedDate = today.toISOString().split('T')[0]
-      const revenueRes = await getDailyStatistics({ date: String(formattedDate) })
-      if (revenueRes && revenueRes.code === 200 && revenueRes.data) {
-        stats.todayRevenue = Number(revenueRes.data.totalAmount) || 0
-        statsCards.value[3].value = `¥${stats.todayRevenue.toLocaleString()}`
+    if (hasPermission('billing:statistics')) {
+      try {
+        const today = new Date()
+        const formattedDate = today.toISOString().split('T')[0]
+        const revenueRes = await getDailyStatistics({ date: String(formattedDate) })
+        if (revenueRes && revenueRes.code === 200 && revenueRes.data) {
+          stats.todayRevenue = Number(revenueRes.data.totalAmount) || 0
+          statsCards.value[3].value = `¥${stats.todayRevenue.toLocaleString()}`
+        }
+      } catch (e) {
+        console.error('获取营收数据失败:', e)
       }
-    } catch (e) {
-      console.error('获取营收数据失败:', e)
+    } else {
+      stats.todayRevenue = 0
+      statsCards.value[3].value = '¥0'
     }
   } catch (error) {
     console.error('加载数据失败详细信息:', error?.message || error)
