@@ -561,11 +561,12 @@ function applyParkingFormData(parking = {}) {
 
 async function handleDetail(row) {
   parkingApiStats.value = null
+  currentParking.value = { ...row }
+  detailDrawerVisible.value = true
   try {
     const res = await getParkingDetail(row.id)
     if (res.code === 200) {
       currentParking.value = res.data
-      detailDrawerVisible.value = true
     }
     try {
       const statRes = await getParkingStatistics(row.id)
@@ -575,8 +576,8 @@ async function handleDetail(row) {
     } catch (_) {
       /* 统计接口可选 */
     }
-  } catch (_) {
-    ElMessage.error('获取详情失败')
+  } catch (error) {
+    console.error('获取停车场详情失败:', error)
   }
 }
 
