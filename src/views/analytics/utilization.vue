@@ -192,6 +192,7 @@ import {
   exportBlobMimeType,
   exportFileExtension
 } from '@/utils/analyticsExportFormats'
+import { formatLocalDate } from '@/utils/localDate'
 
 const loading = ref(false)
 const exportFormatOptions = ref([])
@@ -270,7 +271,7 @@ async function handleExport() {
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     const ext = exportFileExtension(exportFormat.value)
-    link.download = `利用率分析_${new Date().toISOString().split('T')[0]}.${ext}`
+    link.download = `利用率分析_${formatLocalDate()}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {

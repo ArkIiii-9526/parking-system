@@ -252,6 +252,7 @@ const formData = reactive({
   id: null,
   name: '',
   description: '',
+  ruleCode: '',
   freeMinutes: 15,
   firstHourFee: 5,
   hourlyFee: 3,
@@ -275,6 +276,23 @@ const formRules = {
 function formatTime(time) {
   if (!time) return '-'
   return new Date(time).toLocaleString('zh-CN')
+}
+
+function generateBillingRuleCode() {
+  const now = new Date()
+  const pad = (value, length = 2) => String(value).padStart(length, '0')
+  const timestamp = [
+    now.getFullYear(),
+    pad(now.getMonth() + 1),
+    pad(now.getDate()),
+    pad(now.getHours()),
+    pad(now.getMinutes()),
+    pad(now.getSeconds()),
+    pad(now.getMilliseconds(), 3)
+  ].join('')
+  const randomSuffix = Math.random().toString(36).slice(2, 6).toUpperCase()
+
+  return `RULE_${timestamp}_${randomSuffix}`
 }
 
 function normalizeBillingRule(rule = {}) {
@@ -313,9 +331,12 @@ function normalizeBillingRule(rule = {}) {
 
 function buildBillingRulePayload(rule = {}) {
   const normalizedRule = normalizeBillingRule(rule)
+  const ruleCode = typeof normalizedRule.ruleCode === 'string'
+    ? normalizedRule.ruleCode.trim()
+    : ''
   const payload = {
     ruleName: normalizedRule.name,
-    ruleCode: normalizedRule.ruleCode,
+    ruleCode: ruleCode || (normalizedRule.id == null ? generateBillingRuleCode() : ''),
     parkingId: normalizedRule.parkingId,
     ruleType: normalizedRule.ruleType,
     baseFee: normalizedRule.firstHourFee,
@@ -406,6 +427,8 @@ function handleAdd() {
       formData[key] = null
     } else if (key === 'status') {
       formData[key] = 1
+    } else if (key === 'ruleCode') {
+      formData[key] = generateBillingRuleCode()
     } else {
       formData[key] = key === 'description' ? '' : null
     }

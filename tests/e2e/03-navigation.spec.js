@@ -145,7 +145,7 @@ test.describe('导航菜单测试', () => {
     test('TC-NAV-018: 导航到停车场分区页面', async ({ page }) => {
       await clickSidebarSubmenu(page, '停车场管理', '区域管理');
       await page.waitForURL(/.*\/parking-section/, { timeout: 5000 });
-      await expect(page.locator('h2.page-title')).toContainText('停车场分区');
+      await expect(page.locator('.page-title')).toContainText('停车场分区');
     });
 
     test('TC-NAV-019: 导航到模拟数据页面', async ({ page }) => {

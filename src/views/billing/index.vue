@@ -1,5 +1,6 @@
 <template>
-  <div class="billing-container legacy-themed-page">
+  <OwnerBillingPanel v-if="showOwnerPanel" />
+  <div v-else class="billing-container legacy-themed-page">
     <el-card class="daily-summary-card" v-loading="dailyLoading">
       <template #header>
         <span>今日收费概览（日报表）</span>
@@ -225,11 +226,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getBillingRecordsPage, payBillingRecord, exportBillingRecords, getDailyStatistics } from '@/api/billing'
+import { useUserStore } from '@/stores/user'
 import { hasPermission } from '@/utils/hasPermission'
+import { formatLocalDate } from '@/utils/localDate'
+import { isOwnerUser } from '@/utils/userRole'
+import OwnerBillingPanel from './components/OwnerBillingPanel.vue'
 
+const userStore = useUserStore()
+const showOwnerPanel = computed(() => isOwnerUser(userStore))
 const loading = ref(false)
 const payLoading = ref(false)
 const payDialogVisible = ref(false)
@@ -238,7 +245,7 @@ const dateRange = ref(null)
 const totalRevenue = ref(0)
 const dailySummary = ref(null)
 const dailyLoading = ref(false)
-const todayStr = new Date().toISOString().split('T')[0]
+const todayStr = formatLocalDate()
 
 async function loadDailySummary() {
   if (!hasPermission('billing:statistics')) {
@@ -463,6 +470,9 @@ async function handleExport() {
 const payFormRef = ref(null)
 
 onMounted(() => {
+  if (showOwnerPanel.value) {
+    return
+  }
   loadData()
   loadDailySummary()
 })

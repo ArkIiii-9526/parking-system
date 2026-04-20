@@ -1,5 +1,6 @@
 <template>
-  <div class="vehicle-page">
+  <OwnerVehiclePanel v-if="showOwnerPanel" />
+  <div v-else class="vehicle-page">
     <div class="page-header">
       <div class="header-content">
         <h1 class="page-title">
@@ -8,7 +9,7 @@
           </span>
           车辆进出管理
         </h1>
-        <p class="page-subtitle">统一处理车辆入场、出场登记与场内记录检索。</p>
+        <p class="page-subtitle">统一处理车辆入场、出场登记与场内记录检索，无物联网时也可手动或自动分配车位完成模拟入场。</p>
       </div>
       <div class="header-metrics">
         <div class="metric-pill">
@@ -31,7 +32,7 @@
             </span>
             <span>车辆入场</span>
           </div>
-          <p class="panel-subtitle">选择停车场和空闲车位，完成入场登记。</p>
+          <p class="panel-subtitle">可手动选择车位，也可留空让系统自动分配空闲车位。</p>
         </div>
 
         <el-form
@@ -51,8 +52,8 @@
             <el-input v-model="entryForm.carNo" placeholder="请输入车牌号" />
           </el-form-item>
 
-          <el-form-item label="车位" prop="spaceId">
-            <el-select v-model="entryForm.spaceId" placeholder="请选择车位" filterable>
+          <el-form-item label="车位（可选）" prop="spaceId">
+            <el-select v-model="entryForm.spaceId" placeholder="可不选，系统将自动分配车位" clearable filterable>
               <el-option
                 v-for="s in availableSpaces"
                 :key="s.id"
@@ -60,6 +61,7 @@
                 :value="s.id"
               />
             </el-select>
+            <div class="field-hint">不知道车辆最终停到哪个车位时，可直接留空，系统会自动锁定一个可用车位并写入入场记录。</div>
           </el-form-item>
 
           <el-form-item class="form-actions">
@@ -158,6 +160,10 @@
             <span class="value">{{ formatTime(queryResult.entryTime) }}</span>
           </div>
           <div class="result-item">
+            <span class="label">当前车位</span>
+            <span class="value">{{ getQuerySpaceLabel(queryResult) }}</span>
+          </div>
+          <div class="result-item">
             <span class="label">状态</span>
             <el-tag :type="queryResult.status === 1 ? 'success' : 'warning'">
               {{ queryResult.status === 1 ? '已出场' : '在场' }}
@@ -180,6 +186,14 @@
         </div>
 
         <div class="filter-toolbar">
+          <el-select
+            v-model="recordsParkingId"
+            class="records-parking-filter"
+            placeholder="请选择停车场"
+            @change="handleRecordsParkingChange"
+          >
+            <el-option v-for="p in parkingList" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
           <el-date-picker
             v-model="dateRange"
             class="date-filter"
@@ -236,12 +250,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { vehicleEntry, vehicleExit, getActiveEntry, getVehicleRecordsByParking } from '@/api/vehicle'
 import { getAvailableSpaces, getParkingSpacesByParking } from '@/api/parkingSpace'
 import { getParkingPage } from '@/api/parking'
+import { useUserStore } from '@/stores/user'
+import { isOwnerUser } from '@/utils/userRole'
+import OwnerVehiclePanel from './components/OwnerVehiclePanel.vue'
 
+const userStore = useUserStore()
+const showOwnerPanel = computed(() => isOwnerUser(userStore))
 const loading = ref(false)
 const entryLoading = ref(false)
 const exitLoading = ref(false)
@@ -249,6 +268,7 @@ const dateRange = ref(null)
 const parkingList = ref([])
 const availableSpaces = ref([])
 const queryResult = ref(null)
+const recordsParkingId = ref(null)
 
 const tableData = ref([])
 const pagination = reactive({
@@ -265,8 +285,7 @@ const entryForm = reactive({
 
 const entryRules = {
   parkingId: [{ required: true, message: '请选择停车场', trigger: 'change' }],
-  carNo: [{ required: true, message: '请输入车牌号', trigger: 'blur' }],
-  spaceId: [{ required: true, message: '请选择车位', trigger: 'change' }]
+  carNo: [{ required: true, message: '请输入车牌号', trigger: 'blur' }]
 }
 
 const exitForm = reactive({
@@ -320,6 +339,13 @@ function getSpaceOptionLabel(space) {
   return spaceCode || '未命名车位'
 }
 
+function getQuerySpaceLabel(record) {
+  if (!record) {
+    return '-'
+  }
+  return getSpaceCode(record) || (record.spaceId ? `#${record.spaceId}` : '未分配')
+}
+
 function normalizeSpace(space) {
   return {
     ...space,
@@ -333,14 +359,19 @@ async function loadParkingList() {
     const res = await getParkingPage({ pageNo: 1, pageSize: 100 })
     if (res.code === 200) {
       parkingList.value = res.data.records || []
+      if (!recordsParkingId.value && parkingList.value.length > 0) {
+        recordsParkingId.value = parkingList.value[0].id
+      }
     } else {
       ElMessage.error(res.msg || '加载停车场列表失败')
       parkingList.value = []
+      recordsParkingId.value = null
     }
   } catch (error) {
     console.error('加载停车场列表失败:', error)
     ElMessage.error('网络错误，加载停车场列表失败')
     parkingList.value = []
+    recordsParkingId.value = null
   }
 }
 
@@ -373,8 +404,8 @@ async function loadData() {
       endTime: dateRange.value ? dateRange.value[1] : null
     }
     
-    if (parkingList.value.length > 0) {
-      params.parkingId = parkingList.value[0].id
+    if (recordsParkingId.value) {
+      params.parkingId = recordsParkingId.value
 
       const [recordsResult, spacesResult] = await Promise.allSettled([
         getVehicleRecordsByParking(params.parkingId, params),
@@ -431,7 +462,9 @@ async function handleEntry() {
     
     const res = await vehicleEntry(entryForm)
     if (res.code === 200) {
-      ElMessage.success('入场登记成功')
+      recordsParkingId.value = entryForm.parkingId
+      const assignedSpaceLabel = getQuerySpaceLabel(res.data) || (entryForm.spaceId ? `#${entryForm.spaceId}` : '')
+      ElMessage.success(assignedSpaceLabel ? `入场登记成功，已分配车位 ${assignedSpaceLabel}` : '入场登记成功')
       handleEntryReset()
       loadData()
     } else {
@@ -458,6 +491,7 @@ async function handleExit() {
     
     const res = await vehicleExit(exitForm)
     if (res.code === 200) {
+      recordsParkingId.value = exitForm.parkingId
       ElMessage.success('出场登记成功')
       handleExitReset()
       loadData()
@@ -507,6 +541,11 @@ function handleDateChange() {
   loadData()
 }
 
+function handleRecordsParkingChange() {
+  pagination.pageNo = 1
+  loadData()
+}
+
 function handleSizeChange(size) {
   pagination.pageSize = size
   loadData()
@@ -521,6 +560,9 @@ const entryFormRef = ref(null)
 const exitFormRef = ref(null)
 
 onMounted(async () => {
+  if (showOwnerPanel.value) {
+    return
+  }
   await loadParkingList()
   await loadData()
 })
@@ -772,6 +814,13 @@ onMounted(async () => {
   }
 }
 
+.field-hint {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
 .form-actions {
   margin-bottom: 0;
 
@@ -859,13 +908,21 @@ onMounted(async () => {
 }
 
 .filter-toolbar {
+  display: flex;
+  gap: var(--space-3);
   min-width: 300px;
 }
 
-.date-filter {
-  width: 100%;
+.records-parking-filter {
+  width: 220px;
+  flex-shrink: 0;
 }
 
+.date-filter {
+  flex: 1;
+}
+
+.records-panel :deep(.el-select__wrapper),
 .records-panel :deep(.el-date-editor.el-input__wrapper) {
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 0 0 1px var(--glass-border) inset;
@@ -882,6 +939,8 @@ onMounted(async () => {
 
 .records-panel :deep(.el-range-input),
 .records-panel :deep(.el-range-separator),
+.records-panel :deep(.el-select__placeholder),
+.records-panel :deep(.el-select__selected-item),
 .records-panel :deep(.el-input__icon) {
   color: var(--text-secondary);
 }
@@ -983,6 +1042,7 @@ onMounted(async () => {
 
   .filter-toolbar {
     min-width: 0;
+    flex-direction: column;
   }
 }
 

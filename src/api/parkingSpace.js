@@ -1,10 +1,21 @@
 import request from '@/utils/request'
 
 export function getParkingSpacePage(params) {
+  const { pageNo, pageSize, area, ...rest } = params || {}
+  const normalizedArea = typeof area === 'string' ? area.trim() : area
+  const normalizedSectionArea = typeof rest.sectionArea === 'string'
+    ? rest.sectionArea.trim()
+    : rest.sectionArea
+
   return request({
     url: '/parking-spaces/page',
     method: 'get',
-    params
+    params: {
+      ...rest,
+      page: rest.page ?? pageNo,
+      size: rest.size ?? pageSize,
+      sectionArea: normalizedSectionArea || normalizedArea || undefined
+    }
   })
 }
 
@@ -52,6 +63,35 @@ export function deleteParkingSpace(id) {
   })
 }
 
+export function createParkingSpaceAiImportTask(parkingId, data) {
+  return request({
+    url: `/parking-spaces/ai-import/${parkingId}/tasks`,
+    method: 'post',
+    data
+  })
+}
+
+export function getParkingSpaceAiImportTask(taskId) {
+  return request({
+    url: `/parking-spaces/ai-import/tasks/${taskId}`,
+    method: 'get'
+  })
+}
+
+export function getLatestParkingSpaceAiImportTask(parkingId) {
+  return request({
+    url: `/parking-spaces/ai-import/latest/${parkingId}`,
+    method: 'get'
+  })
+}
+
+export function clearParkingSpacesByParking(parkingId) {
+  return request({
+    url: `/parking-spaces/by-parking/${parkingId}`,
+    method: 'delete'
+  })
+}
+
 export function updateSpaceStatus(id, data) {
   return request({
     url: `/parking-spaces/${id}/status`,
@@ -61,10 +101,11 @@ export function updateSpaceStatus(id, data) {
 }
 
 export function reserveSpace(id, data) {
+  const carNo = data?.carNo || data?.currentCarNo
   return request({
     url: `/parking-spaces/${id}/reserve`,
     method: 'put',
-    data
+    params: { carNo }
   })
 }
 

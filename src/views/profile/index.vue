@@ -94,6 +94,7 @@ import { useUserStore } from '@/stores/user'
 import { getUserDetail, updateUserProfile, updateUserPwd } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import { User, Phone, Message, Postcard, Calendar } from '@element-plus/icons-vue'
+import { getUserRoleLabel } from '@/utils/userRole'
 
 const userStore = useUserStore()
 const activeTab = ref('userinfo')
@@ -110,15 +111,7 @@ const infoFormRef = ref(null)
 const pwdFormRef = ref(null)
 
 const getUserTypeName = (type) => {
-  const map = {
-    '00': '超级管理员',
-    'admin': '超级管理员',
-    'SUPER_ADMIN': '超级管理员',
-    'ADMIN': '管理员',
-    'INSPECTOR': '巡检员',
-    'OWNER': '普通用户'
-  }
-  return map[type] || type || '普通用户'
+  return getUserRoleLabel({ user: { userType: type } })
 }
 
 const getUserTagType = (type) => {
@@ -177,14 +170,19 @@ const submitInfo = async () => {
       loading.value = true
       try {
         const res = await updateUserProfile({
-          userId: user.value.userId,
+          userId: user.value.userId ?? user.value.id,
           nickname: user.value.nickname,
           phone: user.value.phone,
           email: user.value.email
         })
         if (res.code === 200) {
+          userStore.mergeCurrentUser({
+            userId: user.value.userId ?? user.value.id,
+            nickname: user.value.nickname,
+            phone: user.value.phone,
+            email: user.value.email
+          })
           ElMessage.success('个人资料修改成功')
-          userStore.getUserInfo() // 刷新全局状态
         } else {
           ElMessage.error(res.msg || '修改失败')
         }

@@ -92,7 +92,7 @@
             <el-icon><User /></el-icon>
           </el-avatar>
           <div class="user-info">
-            <span class="user-name">{{ userStore.userName }}</span>
+            <span class="user-name">{{ userStore.displayName }}</span>
             <span class="user-role">{{ userRoleName }}</span>
           </div>
           <el-icon class="dropdown-arrow"><ArrowDown /></el-icon>
@@ -123,23 +123,13 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import { getUserRoleLabel } from '@/utils/userRole'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const userRoleName = computed(() => {
-  const type = userStore.user?.userType
-  const map = {
-    '00': '超级管理员',
-    'admin': '超级管理员',
-    'SUPER_ADMIN': '超级管理员',
-    'ADMIN': '管理员',
-    'INSPECTOR': '巡检员',
-    'OWNER': '普通用户'
-  }
-  return map[type] || type || '普通用户'
-})
+const userRoleName = computed(() => getUserRoleLabel(userStore))
 
 const searchExpanded = ref(false)
 const searchQuery = ref('')

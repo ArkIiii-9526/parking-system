@@ -160,7 +160,7 @@ import {
   ArrowDown,
   Search
 } from '@element-plus/icons-vue'
-import { getTurnoverAnalysis, exportTurnover } from '@/api/analytics'
+import { getTurnoverAnalysis, getTrendAnalysis, exportTurnover } from '@/api/analytics'
 import {
   createAreaGradient,
   createVerticalGradient,
@@ -174,6 +174,7 @@ import {
   exportBlobMimeType,
   exportFileExtension
 } from '@/utils/analyticsExportFormats'
+import { formatLocalDate, getPeriodDateRange } from '@/utils/localDate'
 
 const loading = ref(false)
 const exportFormatOptions = ref([])
@@ -208,6 +209,83 @@ const turnoverData = ref({
   turnoverList: []
 })
 
+function normalizeNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
+}
+
+function buildTurnoverParams() {
+  const { startDate, endDate } = getPeriodDateRange(period.value)
+  return {
+    startDate,
+    endDate,
+    periodType: period.value
+  }
+}
+
+function getTurnoverLevel(rate) {
+  if (rate >= 3) return '高周转'
+  if (rate >= 1.5) return '中周转'
+  return '低周转'
+}
+
+function buildTurnoverViewModel(items, trendPayload) {
+  const safeItems = Array.isArray(items) ? items : []
+  const totalExits = safeItems.reduce((sum, item) => sum + normalizeNumber(item.totalExits), 0)
+  const weightedDuration = safeItems.reduce(
+    (sum, item) => sum + normalizeNumber(item.averageParkingDuration) * normalizeNumber(item.totalExits),
+    0
+  )
+  const avgTurnoverRate = safeItems.length
+    ? safeItems.reduce((sum, item) => sum + normalizeNumber(item.turnoverRate), 0) / safeItems.length
+    : 0
+  const trendLabels = Array.isArray(trendPayload?.dateLabels) ? trendPayload.dateLabels : []
+  const turnoverTrend = Array.isArray(trendPayload?.turnoverRates) ? trendPayload.turnoverRates.map(normalizeNumber) : []
+  const hasTurnoverTrend = turnoverTrend.some(value => value > 0)
+  const entryCounts = Array.isArray(trendPayload?.entryCounts) ? trendPayload.entryCounts : []
+  const exitCounts = Array.isArray(trendPayload?.exitCounts) ? trendPayload.exitCounts : []
+
+  return {
+    avgTurnoverRate,
+    turnoverChange: 0,
+    totalVehicles: safeItems.reduce(
+      (sum, item) => sum + normalizeNumber(item.totalEntries) + normalizeNumber(item.totalExits),
+      0
+    ),
+    vehicleChange: 0,
+    avgDuration: totalExits > 0 ? weightedDuration / totalExits : 0,
+    durationChange: 0,
+    peakHoursCount: safeItems.filter(item => normalizeNumber(item.turnoverRate) >= Math.max(avgTurnoverRate, 1.5)).length,
+    peakChange: 0,
+    distribution: [
+      { name: '低周转', value: safeItems.filter(item => normalizeNumber(item.turnoverRate) < 1.5).length },
+      {
+        name: '中周转',
+        value: safeItems.filter(item => normalizeNumber(item.turnoverRate) >= 1.5 && normalizeNumber(item.turnoverRate) < 3).length
+      },
+      { name: '高周转', value: safeItems.filter(item => normalizeNumber(item.turnoverRate) >= 3).length }
+    ],
+    trendData: trendLabels.map((date, index) => ({
+      date,
+      turnoverRate: hasTurnoverTrend ? turnoverTrend[index] || 0 : Number(avgTurnoverRate.toFixed(2)),
+      vehicleCount: normalizeNumber(entryCounts[index]) + normalizeNumber(exitCounts[index])
+    })),
+    parkingTurnover: safeItems.map(item => ({
+      name: item.parkingName,
+      rate: normalizeNumber(item.turnoverRate)
+    })),
+    turnoverList: safeItems.map(item => ({
+      parkingId: item.parkingId,
+      parkingName: item.parkingName,
+      totalSpaces: normalizeNumber(item.totalSpaces),
+      turnoverRate: normalizeNumber(item.turnoverRate),
+      avgDuration: normalizeNumber(item.averageParkingDuration),
+      peakHours: [getTurnoverLevel(normalizeNumber(item.turnoverRate))],
+      efficiency: Math.min(normalizeNumber(item.utilizationRate), 100)
+    }))
+  }
+}
+
 // 效率进度条颜色
 const getEfficiencyColor = (percentage) => {
   const theme = getAnalyticsTheme()
@@ -240,7 +318,7 @@ const statCards = computed(() => [
     type: 'warning'
   },
   {
-    label: '高峰时段数',
+    label: '高周转停车场',
     value: turnoverData.value.peakHoursCount.toString(),
     change: turnoverData.value.peakChange,
     icon: 'OfficeBuilding',
@@ -479,9 +557,16 @@ function initParkingChart() {
 async function fetchTurnoverData() {
   loading.value = true
   try {
-    const res = await getTurnoverAnalysis({ period: period.value })
-    if (res.code === 200) {
-      turnoverData.value = { ...turnoverData.value, ...res.data }
+    const params = buildTurnoverParams()
+    const [turnoverRes, trendRes] = await Promise.all([
+      getTurnoverAnalysis(params),
+      getTrendAnalysis({ ...params, periodType: 'day' })
+    ])
+    if (turnoverRes.code === 200) {
+      turnoverData.value = {
+        ...turnoverData.value,
+        ...buildTurnoverViewModel(turnoverRes.data, trendRes?.data)
+      }
       nextTick(() => {
         initDistributionChart()
         initTrendChart()
@@ -504,7 +589,7 @@ function handlePeriodChange() {
 // 导出数据
 async function handleExport() {
   try {
-    let payload = { period: period.value }
+    let payload = buildTurnoverParams()
     payload = appendFormatToPayload(payload, exportFormat.value)
     const res = await exportTurnover(payload)
     const raw = res?.data ?? res
@@ -513,7 +598,7 @@ async function handleExport() {
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     const ext = exportFileExtension(exportFormat.value)
-    link.download = `周转率分析_${period.value}_${new Date().toISOString().split('T')[0]}.${ext}`
+    link.download = `周转率分析_${period.value}_${formatLocalDate()}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {

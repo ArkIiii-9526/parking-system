@@ -4,20 +4,7 @@
     <div class="sidebar-header">
       <div class="logo-wrapper">
         <div class="logo-icon">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="sidebarLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#6366F1"/>
-                <stop offset="50%" style="stop-color:#10B981"/>
-                <stop offset="100%" style="stop-color:#F43F5E"/>
-              </linearGradient>
-            </defs>
-            <rect x="8" y="20" width="48" height="32" rx="4" stroke="url(#sidebarLogoGradient)" stroke-width="3" fill="none"/>
-            <circle cx="20" cy="36" r="4" fill="url(#sidebarLogoGradient)"/>
-            <circle cx="32" cy="36" r="4" fill="url(#sidebarLogoGradient)"/>
-            <circle cx="44" cy="36" r="4" fill="url(#sidebarLogoGradient)"/>
-            <path d="M16 20V14C16 11.7909 17.7909 10 20 10H44C46.2091 10 48 11.7909 48 14V20" stroke="url(#sidebarLogoGradient)" stroke-width="3" stroke-linecap="round"/>
-          </svg>
+          <img :src="logoImage" alt="智慧停车 logo" class="logo-image" />
         </div>
         <span v-if="!isCollapse" class="logo-text">智慧停车</span>
       </div>
@@ -99,6 +86,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { resolveElementIcon } from '@/utils/elementIcon'
+import { hasPermission } from '@/utils/hasPermission'
+import { isOwnerUser } from '@/utils/userRole'
+import logoImage from '@/assets/logo.svg'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -106,6 +96,33 @@ const userStore = useUserStore()
 const isCollapse = ref(false)
 const menuRoutes = ref([])
 const expandedMenus = ref([])
+
+const ownerFlowMenus = [
+  {
+    path: '/reservation',
+    name: 'Reservation',
+    meta: { title: '预约管理', icon: 'Calendar' },
+    permissions: ['reservation:manage', 'reservation:view', 'reservation:list']
+  },
+  {
+    path: '/vehicle',
+    name: 'Vehicle',
+    meta: { title: '车辆进出', icon: 'Van' },
+    permissions: ['vehicle:manage', 'billing:entry', 'billing:exit']
+  },
+  {
+    path: '/billing',
+    name: 'Billing',
+    meta: { title: '停车缴费', icon: 'Money' },
+    permissions: ['billing:manage', 'billing:view', 'billing:pay']
+  },
+  {
+    path: '/guidance',
+    name: 'Guidance',
+    meta: { title: '停车引导', icon: 'Guide' },
+    permissions: ['guidance:view']
+  }
+]
 
 const activeMenu = computed(() => {
   const { meta, path } = route
@@ -154,6 +171,29 @@ function updateMenus() {
   if (!hasHome) {
     normalizedMenus.unshift(homeMenu)
   }
+
+  if (isOwnerUser(userStore)) {
+    const menuMap = new Map(normalizedMenus.map(item => [item.path, item]))
+
+    ownerFlowMenus.forEach((menuItem) => {
+      const allowed = menuItem.permissions.some(code => hasPermission(code))
+      if (allowed && !menuMap.has(menuItem.path)) {
+        menuMap.set(menuItem.path, {
+          path: menuItem.path,
+          name: menuItem.name,
+          meta: menuItem.meta
+        })
+      }
+    })
+
+    const orderedMenus = ['/dashboard', ...ownerFlowMenus.map(item => item.path)]
+      .map(path => menuMap.get(path))
+      .filter(Boolean)
+
+    menuRoutes.value = orderedMenus.length > 0 ? orderedMenus : [homeMenu]
+    return
+  }
+
   menuRoutes.value = normalizedMenus.length > 0 ? normalizedMenus : [homeMenu]
 }
 
@@ -241,11 +281,13 @@ const emit = defineEmits(['collapse'])
       width: 40px;
       height: 40px;
       flex-shrink: 0;
-      
-      svg {
-        width: 100%;
-        height: 100%;
-      }
+    }
+
+    .logo-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
     }
     
     .logo-text {

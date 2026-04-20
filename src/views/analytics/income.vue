@@ -170,6 +170,7 @@ import {
   exportBlobMimeType,
   exportFileExtension
 } from '@/utils/analyticsExportFormats'
+import { formatLocalDate, getPeriodDateRange } from '@/utils/localDate'
 
 const loading = ref(false)
 const exportFormatOptions = ref([])
@@ -203,6 +204,15 @@ const incomeData = ref({
   parkingIncome: [],
   incomeList: []
 })
+
+function buildIncomeParams() {
+  const { startDate, endDate } = getPeriodDateRange(period.value)
+  return {
+    startDate,
+    endDate,
+    periodType: period.value
+  }
+}
 
 // 统计卡片
 const statCards = computed(() => [
@@ -241,7 +251,7 @@ const filteredIncomeList = computed(() => {
   let list = incomeData.value.incomeList || []
   if (searchQuery.value) {
     list = list.filter(item => 
-      item.parkingName.toLowerCase().includes(searchQuery.value.toLowerCase())
+      (item.parkingName || '').toLowerCase().includes(searchQuery.value.toLowerCase())
     )
   }
   return list
@@ -413,7 +423,7 @@ function initParkingChart() {
 async function fetchIncomeData() {
   loading.value = true
   try {
-    const res = await getIncomeAnalysis({ period: period.value })
+    const res = await getIncomeAnalysis(buildIncomeParams())
     if (res.code === 200) {
       incomeData.value = { ...incomeData.value, ...res.data }
       nextTick(() => {
@@ -438,7 +448,7 @@ function handlePeriodChange() {
 // 导出数据
 async function handleExport() {
   try {
-    let payload = { period: period.value }
+    let payload = buildIncomeParams()
     payload = appendFormatToPayload(payload, exportFormat.value)
     const res = await exportIncome(payload)
     const raw = res?.data ?? res
@@ -447,7 +457,7 @@ async function handleExport() {
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     const ext = exportFileExtension(exportFormat.value)
-    link.download = `收入分析_${period.value}_${new Date().toISOString().split('T')[0]}.${ext}`
+    link.download = `收入分析_${period.value}_${formatLocalDate()}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {

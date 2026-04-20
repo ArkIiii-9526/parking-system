@@ -17,32 +17,6 @@ export function getParkingSectionDetail(id) {
   })
 }
 
-// 新增分区
-export function createParkingSection(data) {
-  return request({
-    url: '/parking-sections',
-    method: 'post',
-    data
-  })
-}
-
-// 更新分区
-export function updateParkingSection(data) {
-  return request({
-    url: '/parking-sections',
-    method: 'put',
-    data
-  })
-}
-
-// 删除分区
-export function deleteParkingSection(id) {
-  return request({
-    url: `/parking-sections/${id}`,
-    method: 'delete'
-  })
-}
-
 // 根据停车场查询分区
 export function getSectionsByParking(parkingId) {
   return request({
@@ -75,11 +49,10 @@ export function getParkingSectionsStatistics(parkingId) {
   })
 }
 
-// 更新分区车位数量
-export function updateSectionSpaceCount(id, data) {
+// 同步分区车位数量
+export function updateSectionSpaceCount(id) {
   return request({
     url: `/parking-sections/${id}/update-space-count`,
-    method: 'put',
-    data
+    method: 'put'
   })
 }

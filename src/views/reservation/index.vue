@@ -1,5 +1,25 @@
 <template>
   <div class="reservation-page legacy-themed-page">
+    <section v-if="isOwnerView" class="owner-intro">
+      <div class="intro-copy">
+        <p class="intro-eyebrow">车主预约中心</p>
+        <h1 class="intro-title">先预约，再入场，流程会更顺</h1>
+        <p class="intro-subtitle">
+          预约成功后系统会立即为你锁定车位 {{ RESERVATION_HOLD_MINUTES }} 分钟。超时仍未入场，预约会自动取消并释放车位。
+        </p>
+      </div>
+      <div class="intro-stats">
+        <div class="intro-card">
+          <span>当前用户</span>
+          <strong>{{ userStore.user?.nickname || userStore.user?.username || '车主' }}</strong>
+        </div>
+        <div class="intro-card accent">
+          <span>待使用预约</span>
+          <strong>{{ pendingReservationCount }}</strong>
+        </div>
+      </div>
+    </section>
+
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filterForm">
         <el-form-item label="停车场">
@@ -10,15 +30,15 @@
         <el-form-item label="车牌号">
           <el-input v-model="filterForm.carNo" clearable placeholder="模糊查询" style="width: 140px" />
         </el-form-item>
-        <el-form-item label="用户ID">
+        <el-form-item v-if="!isOwnerView" label="用户ID">
           <el-input v-model="filterForm.userId" clearable style="width: 120px" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filterForm.status" clearable placeholder="全部" style="width: 120px">
-            <el-option label="待使用" :value="0" />
-            <el-option label="使用中" :value="1" />
-            <el-option label="已完成" :value="2" />
+            <el-option label="待使用" :value="1" />
+            <el-option label="已使用" :value="2" />
             <el-option label="已取消" :value="3" />
+            <el-option label="已过期" :value="4" />
           </el-select>
         </el-form-item>
         <el-form-item label="日期">
@@ -41,20 +61,30 @@
 
     <el-card shadow="never" class="table-card">
       <el-table v-loading="loading" :data="tableData" border stripe>
-        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column v-if="!isOwnerView" prop="id" label="ID" width="70" />
         <el-table-column prop="parkingName" label="停车场" min-width="120" />
         <el-table-column prop="spaceNumber" label="车位" width="90" />
         <el-table-column prop="carNo" label="车牌" width="110" />
-        <el-table-column prop="userId" label="用户ID" width="100" />
-        <el-table-column prop="startTime" label="开始" width="160" />
-        <el-table-column prop="endTime" label="结束" width="160" />
+        <el-table-column v-if="!isOwnerView" prop="userId" label="用户ID" width="100" />
+        <el-table-column prop="reserveTime" label="预约时间" width="170" />
+        <el-table-column prop="endTime" label="保留截止" width="170" />
         <el-table-column prop="statusText" label="状态" width="90" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" :width="isOwnerView ? 280 : 220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.status !== 3" link type="warning" @click="openEdit(row)">修改</el-button>
-            <el-button v-if="row.status !== 3" link type="warning" @click="handleCancel(row)">取消</el-button>
-            <el-button v-permission="'reservation:delete'" link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="isOwnerView && Number(row.status) === 1" link type="success" @click="goToEntry(row)">去入场</el-button>
+            <el-button v-if="isOwnerView && Number(row.status) === 1" link type="info" @click="goToGuidance(row)">去引导</el-button>
+            <el-button v-if="Number(row.status) === 1" link type="warning" @click="openEdit(row)">修改备注</el-button>
+            <el-button v-if="Number(row.status) === 1" link type="warning" @click="handleCancel(row)">取消</el-button>
+            <el-button
+              v-if="Number(row.status) === 3 || Number(row.status) === 4"
+              v-permission="'reservation:delete'"
+              link
+              type="danger"
+              @click="handleDelete(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -86,18 +116,18 @@
         <el-form-item label="车牌号" prop="carNo">
           <el-input v-model="createForm.carNo" />
         </el-form-item>
-        <el-form-item label="用户ID" prop="userId">
+        <el-form-item v-if="!isOwnerView" label="用户ID" prop="userId">
           <el-input v-model="createForm.userId" />
-        </el-form-item>
-        <el-form-item label="开始时间" prop="startTime">
-          <el-date-picker v-model="createForm.startTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="结束时间" prop="endTime">
-          <el-date-picker v-model="createForm.endTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="createForm.remark" type="textarea" rows="2" />
         </el-form-item>
+        <el-alert
+          :title="`提交后会立即锁定车位，默认保留 ${RESERVATION_HOLD_MINUTES} 分钟。超时未入场，系统会自动取消预约。`"
+          type="info"
+          :closable="false"
+          show-icon
+        />
       </el-form>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
@@ -110,22 +140,16 @@
         <el-descriptions-item label="停车场">{{ currentRow.parkingName }}</el-descriptions-item>
         <el-descriptions-item label="车位">{{ currentRow.spaceNumber }}</el-descriptions-item>
         <el-descriptions-item label="车牌">{{ currentRow.carNo }}</el-descriptions-item>
-        <el-descriptions-item label="用户">{{ currentRow.userId }}</el-descriptions-item>
-        <el-descriptions-item label="开始">{{ currentRow.startTime }}</el-descriptions-item>
-        <el-descriptions-item label="结束">{{ currentRow.endTime }}</el-descriptions-item>
+        <el-descriptions-item v-if="!isOwnerView" label="用户">{{ currentRow.userId }}</el-descriptions-item>
+        <el-descriptions-item label="预约时间">{{ currentRow.reserveTime }}</el-descriptions-item>
+        <el-descriptions-item label="保留截止">{{ currentRow.endTime }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ currentRow.statusText }}</el-descriptions-item>
         <el-descriptions-item label="备注">{{ currentRow.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
     </el-drawer>
 
-    <el-dialog v-model="editVisible" title="修改预约" width="480px">
-      <el-form :model="editForm" label-width="100px">
-        <el-form-item label="开始时间">
-          <el-date-picker v-model="editForm.startTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="结束时间">
-          <el-date-picker v-model="editForm.endTime" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width: 100%" />
-        </el-form-item>
+    <el-dialog v-model="editVisible" title="修改预约备注" width="480px">
+      <el-form ref="editFormRef" :model="editForm" label-width="100px">
         <el-form-item label="备注">
           <el-input v-model="editForm.remark" type="textarea" rows="2" />
         </el-form-item>
@@ -139,8 +163,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRouter } from 'vue-router'
 import {
   getReservationPage,
   createReservation,
@@ -152,8 +177,13 @@ import {
 import { getParkingPage } from '@/api/parking'
 import { getParkingSpacesByParking } from '@/api/parkingSpace'
 import { useUserStore } from '@/stores/user'
+import { rememberOwnerCar, rememberOwnerCars } from '@/utils/ownerCars'
+import { getCurrentUserId, isOwnerUser } from '@/utils/userRole'
 
+const router = useRouter()
 const userStore = useUserStore()
+const isOwnerView = computed(() => isOwnerUser(userStore))
+const currentUserId = computed(() => getCurrentUserId(userStore))
 const loading = ref(false)
 const tableData = ref([])
 const parkingOptions = ref([])
@@ -174,6 +204,10 @@ const pagination = reactive({
   total: 0
 })
 
+const RESERVATION_HOLD_MINUTES = 15
+
+const pendingReservationCount = computed(() => tableData.value.filter(item => Number(item.status) === 1).length)
+
 async function loadParkings() {
   if (parkingOptions.value.length) return
   try {
@@ -187,7 +221,7 @@ async function loadParkings() {
 function resetFilter() {
   filterForm.parkingId = undefined
   filterForm.carNo = ''
-  filterForm.userId = ''
+  filterForm.userId = isOwnerView.value && currentUserId.value ? String(currentUserId.value) : ''
   filterForm.status = undefined
   dateRange.value = null
   pagination.page = 1
@@ -202,7 +236,9 @@ async function loadData() {
       size: pagination.size,
       parkingId: filterForm.parkingId,
       carNo: filterForm.carNo || undefined,
-      userId: filterForm.userId || undefined,
+      userId: isOwnerView.value
+        ? (currentUserId.value != null ? String(currentUserId.value) : undefined)
+        : (filterForm.userId || undefined),
       status: filterForm.status
     }
     if (dateRange.value?.length === 2) {
@@ -214,6 +250,9 @@ async function loadData() {
       const d = res.data || {}
       tableData.value = d.records || []
       pagination.total = d.total || 0
+      if (isOwnerView.value && currentUserId.value != null) {
+        rememberOwnerCars(currentUserId.value, tableData.value.map(item => item.carNo))
+      }
     }
   } catch (e) {
     console.error(e)
@@ -230,17 +269,14 @@ const createForm = reactive({
   parkingSpaceId: undefined,
   carNo: '',
   userId: '',
-  startTime: '',
-  endTime: '',
   remark: ''
 })
+
 const createRules = {
   parkingId: [{ required: true, message: '请选择停车场', trigger: 'change' }],
   parkingSpaceId: [{ required: true, message: '请选择车位', trigger: 'change' }],
   carNo: [{ required: true, message: '请输入车牌', trigger: 'blur' }],
-  userId: [{ required: true, message: '请输入用户ID', trigger: 'blur' }],
-  startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
-  endTime: [{ required: true, message: '请选择结束时间', trigger: 'change' }]
+  userId: [{ required: true, message: '请输入用户ID', trigger: 'blur' }]
 }
 const submitLoading = ref(false)
 
@@ -274,8 +310,6 @@ function openCreate() {
     parkingSpaceId: undefined,
     carNo: '',
     userId: userStore.user?.userId != null ? String(userStore.user.userId) : (userStore.user?.id != null ? String(userStore.user.id) : ''),
-    startTime: '',
-    endTime: '',
     remark: ''
   })
   spaceOptions.value = []
@@ -294,7 +328,10 @@ async function submitCreate() {
   try {
     const res = await createReservation({ ...createForm })
     if (res.code === 200) {
-      ElMessage.success('创建成功')
+      if (isOwnerView.value && currentUserId.value != null) {
+        rememberOwnerCar(currentUserId.value, createForm.carNo)
+      }
+      ElMessage.success(`预约成功，已锁位 ${RESERVATION_HOLD_MINUTES} 分钟`)
       createVisible.value = false
       loadData()
     }
@@ -322,30 +359,30 @@ async function openDetail(row) {
 }
 
 const editVisible = ref(false)
+const editFormRef = ref(null)
 const editLoading = ref(false)
 const editForm = reactive({
   id: null,
-  startTime: '',
-  endTime: '',
   remark: ''
 })
 
 function openEdit(row) {
   editForm.id = row.id
-  editForm.startTime = row.startTime
-  editForm.endTime = row.endTime
   editForm.remark = row.remark || ''
   editVisible.value = true
 }
 
 async function submitEdit() {
+  const form = editFormRef.value
+  if (!form) return
+  try {
+    await form.validate()
+  } catch {
+    return
+  }
   editLoading.value = true
   try {
-    const res = await updateReservation(editForm.id, {
-      startTime: editForm.startTime,
-      endTime: editForm.endTime,
-      remark: editForm.remark
-    })
+    const res = await updateReservation(editForm.id, { remark: editForm.remark })
     if (res.code === 200) {
       ElMessage.success('已保存')
       editVisible.value = false
@@ -359,7 +396,7 @@ async function submitEdit() {
 }
 
 async function handleCancel(row) {
-  await ElMessageBox.confirm('确定取消该预约？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确定取消该预约？取消后会立即释放车位。', '提示', { type: 'warning' })
   try {
     const res = await cancelReservation(row.id)
     if (res.code === 200) {
@@ -384,7 +421,34 @@ async function handleDelete(row) {
   }
 }
 
+function goToEntry(row) {
+  router.push({
+    path: '/vehicle',
+    query: {
+      action: 'entry',
+      parkingName: row.parkingName || '',
+      spaceNumber: row.spaceNumber || '',
+      carNo: row.carNo || ''
+    }
+  })
+}
+
+function goToGuidance(row) {
+  router.push({
+    path: '/guidance',
+    query: {
+      parkingName: row.parkingName || '',
+      spaceNumber: row.spaceNumber || '',
+      carNo: row.carNo || ''
+    }
+  })
+}
+
 onMounted(() => {
+  if (isOwnerView.value && currentUserId.value != null) {
+    filterForm.userId = String(currentUserId.value)
+  }
+  loadParkings()
   loadData()
 })
 </script>
@@ -395,6 +459,67 @@ onMounted(() => {
   flex-direction: column;
   gap: 16px;
 }
+
+.owner-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr);
+  gap: 16px;
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.16), transparent 38%),
+    rgba(15, 23, 42, 0.86);
+}
+
+.intro-eyebrow {
+  margin: 0 0 10px;
+  color: rgba(148, 163, 184, 0.85);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.intro-title {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.intro-subtitle {
+  margin: 10px 0 0;
+  color: rgba(226, 232, 240, 0.75);
+  line-height: 1.8;
+}
+
+.intro-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.intro-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.56);
+  color: var(--text-primary);
+}
+
+.intro-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(148, 163, 184, 0.84);
+  font-size: 13px;
+}
+
+.intro-card strong {
+  font-size: 24px;
+}
+
+.intro-card.accent {
+  background: rgba(16, 185, 129, 0.16);
+}
+
 .filter-card {
   border-radius: 8px;
 }
@@ -402,5 +527,11 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 960px) {
+  .owner-intro {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

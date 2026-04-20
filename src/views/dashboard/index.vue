@@ -1,5 +1,6 @@
 <template>
-  <div class="dashboard-page">
+  <OwnerDashboardPanel v-if="showOwnerDashboard" />
+  <div v-else class="dashboard-page">
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="header-content">
@@ -201,18 +202,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { getParkingPage } from '@/api/parking'
 import { getDailyStatistics } from '@/api/billing'
 import { getVehicleRecordsByParking } from '@/api/vehicle'
 import { exportComprehensive } from '@/api/analytics'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { hasPermission } from '@/utils/hasPermission'
+import { formatLocalDate, getRecentDateRange } from '@/utils/localDate'
+import { isOwnerUser } from '@/utils/userRole'
+import OwnerDashboardPanel from './components/OwnerDashboardPanel.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const animated = ref(false)
 const chartPeriod = ref('day')
+const showOwnerDashboard = computed(() => isOwnerUser(userStore))
 
 const stats = reactive({
   totalParkings: 0,
@@ -295,15 +302,12 @@ function refreshData() {
 
 async function handleExportReport() {
   try {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 29)
-    const fmt = (d) => d.toISOString().split('T')[0]
+    const { startDate, endDate } = getRecentDateRange(30)
     const res = await exportComprehensive({
-      startDate: fmt(start),
-      endDate: fmt(end),
+      startDate,
+      endDate,
       periodType: 'day',
-      fileName: `综合报表_${fmt(end)}`
+      fileName: `综合报表_${endDate}`
     })
     const raw = res?.data ?? res
     const blob =
@@ -314,7 +318,7 @@ async function handleExportReport() {
           })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `综合报表_${fmt(end)}.xlsx`
+    link.download = `综合报表_${endDate}.xlsx`
     link.click()
     ElMessage.success('导出成功')
   } catch (e) {
@@ -330,8 +334,9 @@ async function loadDashboardData() {
     if (parkingRes && parkingRes.code === 200) {
       const records = parkingRes.data?.records
       const parkings = Array.isArray(records) ? records : []
-      stats.totalParkings = parkingRes.data?.total || parkings.length || 0
-      
+      const totalFromApi = Number(parkingRes.data?.total)
+      stats.totalParkings = totalFromApi > 0 ? totalFromApi : parkings.length
+
       stats.totalSpaces = parkings.reduce((sum, p) => sum + (Number(p?.totalSpaces) || 0), 0)
       stats.availableSpaces = parkings.reduce((sum, p) => sum + (Number(p?.availableSpaces) || 0), 0)
       
@@ -365,8 +370,7 @@ async function loadDashboardData() {
     // 获取营收数据
     if (hasPermission('billing:statistics')) {
       try {
-        const today = new Date()
-        const formattedDate = today.toISOString().split('T')[0]
+        const formattedDate = formatLocalDate()
         const revenueRes = await getDailyStatistics({ date: String(formattedDate) })
         if (revenueRes && revenueRes.code === 200 && revenueRes.data) {
           stats.todayRevenue = Number(revenueRes.data.totalAmount) || 0
@@ -385,6 +389,9 @@ async function loadDashboardData() {
 }
 
 onMounted(() => {
+  if (showOwnerDashboard.value) {
+    return
+  }
   loadDashboardData()
   setTimeout(() => {
     animated.value = true

@@ -156,7 +156,7 @@ onMounted(() => {
 .tags-view-container {
   height: 44px;
   width: 100%;
-  background: rgba(15, 15, 26, 0.4);
+  background: var(--tags-view-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -185,9 +185,9 @@ onMounted(() => {
     cursor: pointer;
     height: 28px;
     line-height: 28px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
-    color: var(--text-tertiary);
+    background: var(--tags-view-item-bg);
+    border: 1px solid var(--tags-view-item-border);
+    color: var(--tags-view-item-text);
     padding: 0 var(--space-3);
     font-size: var(--text-sm);
     margin-right: var(--space-2);
@@ -195,22 +195,22 @@ onMounted(() => {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
     &:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
-      color: var(--text-primary);
+      background: var(--tags-view-item-bg-hover);
+      border-color: var(--tags-view-item-border-hover);
+      color: var(--tags-view-item-text-hover);
       transform: translateY(-1px);
     }
     
     &.active {
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.15));
-      border-color: rgba(99, 102, 241, 0.4);
-      color: var(--primary-400);
+      background: var(--tags-view-item-active-bg);
+      border-color: var(--tags-view-item-active-border);
+      color: var(--tags-view-item-active-text);
       font-weight: var(--font-medium);
       box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
       
       &:hover {
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.2));
-        border-color: rgba(99, 102, 241, 0.6);
+        background: var(--tags-view-item-active-bg-hover);
+        border-color: var(--tags-view-item-active-border-hover);
       }
 
       &::before {
@@ -219,9 +219,9 @@ onMounted(() => {
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background-color: var(--primary-400);
+        background-color: currentColor;
         margin-right: 6px;
-        box-shadow: 0 0 8px var(--primary-400);
+        box-shadow: var(--tags-view-item-active-dot-shadow);
       }
     }
     

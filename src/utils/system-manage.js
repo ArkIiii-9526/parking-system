@@ -49,6 +49,7 @@ export function buildRolePayload(role = {}) {
 
 export function normalizePermissionType(type) {
   const typeMap = {
+    DIR: 'MENU',
     MENU: 'MENU',
     BUTTON: 'BUTTON',
     API: 'API',

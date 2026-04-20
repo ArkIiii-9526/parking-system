@@ -23,23 +23,23 @@ test.describe('UX Improvements & Backend Logic Verification', () => {
     token = body.data.token;
   });
 
-  test('TC-BACKEND-001: Backend JSR-303 Parameter Validation', async ({ request }) => {
-    // Attempt to create a parking lot with totalSpaces = 0 (invalid per @Min(1))
+  test('TC-BACKEND-001: 停车场创建无需手动车位数量', async ({ request }) => {
     const res = await request.post('http://localhost:8076/api/parkings', {
       headers: { Authorization: `Bearer ${token}` },
       data: {
         name: 'Test Validation Parking',
         address: 'Test Address',
-        totalSpaces: 0, // Invalid!
         longitude: 116.397428,
         latitude: 39.90923
       }
     });
     
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(200);
     const body = await res.json();
     console.log('TC-01 Validation Response:', body);
-    expect(body.message).toContain('总车位数至少为1');
+    expect(body.code).toBe(200);
+    expect(body.data.totalSpaces).toBe(0);
+    expect(body.data.availableSpaces).toBe(0);
   });
 
   test('TC-BACKEND-003: Abnormal Occupation Fallback', async ({ request }) => {
@@ -49,7 +49,6 @@ test.describe('UX Improvements & Backend Logic Verification', () => {
       data: {
         name: 'Abnormal Test Parking',
         address: 'Address',
-        totalSpaces: 10,
         longitude: 116.397428,
         latitude: 39.90923
       }
@@ -96,7 +95,6 @@ test.describe('UX Improvements & Backend Logic Verification', () => {
       data: {
         name: 'Concurrency Parking',
         address: 'Address',
-        totalSpaces: 10,
         longitude: 116.0,
         latitude: 39.0
       }

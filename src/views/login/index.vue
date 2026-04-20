@@ -17,20 +17,7 @@
         <!-- Logo区域 -->
         <div class="login-brand">
           <div class="brand-icon">
-            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="var(--primary-500)"/>
-                  <stop offset="50%" stop-color="var(--secondary-500)"/>
-                  <stop offset="100%" stop-color="var(--accent-500)"/>
-                </linearGradient>
-              </defs>
-              <rect x="8" y="20" width="48" height="32" rx="4" stroke="url(#logoGradient)" stroke-width="3" fill="none"/>
-              <circle cx="20" cy="36" r="4" fill="url(#logoGradient)"/>
-              <circle cx="32" cy="36" r="4" fill="url(#logoGradient)"/>
-              <circle cx="44" cy="36" r="4" fill="url(#logoGradient)"/>
-              <path d="M16 20V14C16 11.7909 17.7909 10 20 10H44C46.2091 10 48 11.7909 48 14V20" stroke="url(#logoGradient)" stroke-width="3" stroke-linecap="round"/>
-            </svg>
+            <img :src="logoImage" alt="智慧停车 logo" class="brand-logo" />
           </div>
           <h1 class="brand-title">智慧停车</h1>
           <p class="brand-subtitle">Smart Parking System</p>
@@ -223,6 +210,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { getCaptcha, register } from '@/api/login'
+import logoImage from '@/assets/logo.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -529,11 +517,13 @@ onMounted(() => {
       animation: pulse-glow 3s ease-in-out infinite;
     }
     
-    svg {
+    .brand-logo {
       width: 100%;
       height: 100%;
       position: relative;
       z-index: 1;
+      display: block;
+      object-fit: contain;
     }
   }
   

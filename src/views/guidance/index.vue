@@ -4,6 +4,19 @@
       <template #header>
         <span class="card-title">停车引导</span>
       </template>
+      <section v-if="isOwnerView" class="owner-guidance-intro">
+        <div>
+          <p class="intro-eyebrow">车主引导模式</p>
+          <h2 class="intro-title">先看附近推荐，再按目标车位导航</h2>
+          <p class="intro-subtitle">
+            如果你是从预约页跳转过来的，停车场和目标车位会自动带入到“场内导航”里，你可以继续直接获取路线。
+          </p>
+        </div>
+        <div class="intro-chip">
+          <span>当前焦点</span>
+          <strong>{{ activeTab === 'recommend' ? '附近推荐' : activeTab === 'navigation' ? '场内导航' : '路径规划' }}</strong>
+        </div>
+      </section>
       <el-tabs v-model="activeTab">
         <el-tab-pane label="附近推荐" name="recommend">
           <el-form :inline="true" class="form-row">
@@ -219,7 +232,7 @@
             <el-form-item label="偏好楼层">
               <el-input-number v-model="planForm.preferredFloor" controls-position="right" />
             </el-form-item>
-            <el-collapse class="advanced-block">
+            <el-collapse v-if="!isOwnerView" class="advanced-block">
               <el-collapse-item title="高级参数（调试可选）" name="advanced">
                 <el-form-item label="起始节点ID">
                   <el-input-number v-model="planForm.startNodeId" :min="1" controls-position="right" />
@@ -262,11 +275,18 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getGuidanceMeta, getParkingNavigation, getRecommendParking, planGuidanceRoute } from '@/api/guidance'
 import { getParkingPage } from '@/api/parking'
+import { getParkingSpacesByParking } from '@/api/parkingSpace'
+import { useUserStore } from '@/stores/user'
+import { isOwnerUser } from '@/utils/userRole'
 
+const route = useRoute()
+const userStore = useUserStore()
+const isOwnerView = computed(() => isOwnerUser(userStore))
 const activeTab = ref('recommend')
 const locating = ref(false)
 const locationHint = ref('')
@@ -284,12 +304,97 @@ const recommendLoading = ref(false)
 const recommendList = ref([])
 
 const parkingOptions = ref([])
+const routePresetSpace = ref(null)
+
+function normalizeId(value) {
+  if (value == null || value === '') {
+    return null
+  }
+
+  const normalized = String(value).trim()
+  return normalized || null
+}
+
+function normalizeText(value) {
+  return String(value || '').trim()
+}
+
+function normalizeParkingOption(parking) {
+  return {
+    ...parking,
+    id: normalizeId(parking?.id)
+  }
+}
+
+function normalizeEntryOption(entry) {
+  return {
+    ...entry,
+    id: normalizeId(entry?.id),
+    parkingId: normalizeId(entry?.parkingId)
+  }
+}
+
+function normalizeCandidateSpace(space) {
+  return {
+    ...space,
+    id: normalizeId(space?.id),
+    parkingId: normalizeId(space?.parkingId)
+  }
+}
+
+function prependCandidateSpace(target, space) {
+  if (!space?.id) {
+    return
+  }
+
+  if (target.candidateSpaces.some(candidate => candidate.id === space.id)) {
+    return
+  }
+
+  target.candidateSpaces = [space, ...target.candidateSpaces]
+}
+
+function findParkingByName(parkingName) {
+  const normalizedParkingName = normalizeText(parkingName)
+  if (!normalizedParkingName) {
+    return null
+  }
+
+  return parkingOptions.value.find(parking => normalizeText(parking.name) === normalizedParkingName) || null
+}
+
+async function resolveSpaceByQuery(parkingId, spaceId, spaceNumber) {
+  if (!parkingId || (!spaceId && !spaceNumber)) {
+    return null
+  }
+
+  try {
+    const res = await getParkingSpacesByParking(parkingId)
+    const spaces = Array.isArray(res?.data) ? res.data.map(normalizeCandidateSpace) : []
+    const normalizedSpaceId = normalizeId(spaceId)
+    const normalizedSpaceNumber = normalizeText(spaceNumber)
+
+    return spaces.find((space) => {
+      if (normalizedSpaceId && space.id === normalizedSpaceId) {
+        return true
+      }
+      if (normalizedSpaceNumber && normalizeText(space.spaceNumber) === normalizedSpaceNumber) {
+        return true
+      }
+      return false
+    }) || null
+  } catch (error) {
+    console.error('按名称解析目标车位失败:', error)
+    return null
+  }
+}
+
 async function ensureParkings() {
   if (parkingOptions.value.length) return
   try {
     const res = await getParkingPage({ pageNo: 1, pageSize: 500 })
     if (res.code === 200) {
-      parkingOptions.value = res.data?.records || []
+      parkingOptions.value = (res.data?.records || []).map(normalizeParkingOption)
     }
   } catch (e) {
     console.error(e)
@@ -379,9 +484,12 @@ async function loadGuidanceMeta(parkingId, preferredFloor, target) {
   try {
     const res = await getGuidanceMeta({ parkingId, preferredFloor })
     if (res.code === 200 && res.data) {
-      metaState.entries = res.data.entries || []
-      metaState.candidateSpaces = res.data.candidateSpaces || []
+      metaState.entries = (res.data.entries || []).map(normalizeEntryOption)
+      metaState.candidateSpaces = (res.data.candidateSpaces || []).map(normalizeCandidateSpace)
       metaState.sections = res.data.sections || []
+      if (routePresetSpace.value?.parkingId === normalizeId(parkingId)) {
+        prependCandidateSpace(metaState, routePresetSpace.value)
+      }
     }
   } catch (e) {
     console.error(e)
@@ -434,6 +542,13 @@ async function fetchNavigation() {
     const res = await getParkingNavigation(params)
     if (res.code === 200) {
       navResult.value = res.data
+        ? {
+            ...res.data,
+            parkingId: normalizeId(res.data.parkingId),
+            spaceId: normalizeId(res.data.spaceId),
+            candidateSpaces: (res.data.candidateSpaces || []).map(normalizeCandidateSpace)
+          }
+        : null
       if (res.data?.fallbackApplied) {
         ElMessage.warning(res.data.fallbackReason || '已自动切换到候补车位')
       }
@@ -481,8 +596,8 @@ async function fetchPlan() {
 async function useRecommendationForNavigation(row) {
   await ensureParkings()
   activeTab.value = 'navigation'
-  navForm.parkingId = row.parkingId
-  navForm.spaceId = row.recommendedSpaceId
+  navForm.parkingId = normalizeId(row.parkingId)
+  navForm.spaceId = normalizeId(row.recommendedSpaceId)
   navForm.preferredFloor = row.recommendedFloor
   await loadGuidanceMeta(navForm.parkingId, navForm.preferredFloor, 'nav')
   fetchNavigation()
@@ -491,8 +606,8 @@ async function useRecommendationForNavigation(row) {
 async function useRecommendationForPlan(row) {
   await ensureParkings()
   activeTab.value = 'plan'
-  planForm.parkingId = row.parkingId
-  planForm.targetSpaceId = row.recommendedSpaceId
+  planForm.parkingId = normalizeId(row.parkingId)
+  planForm.targetSpaceId = normalizeId(row.recommendedSpaceId)
   planForm.preferredFloor = row.recommendedFloor
   planForm.startNodeId = undefined
   planForm.endNodeId = undefined
@@ -508,8 +623,8 @@ async function useNavigationResultForPlan() {
   }
   await ensureParkings()
   activeTab.value = 'plan'
-  planForm.parkingId = navResult.value.parkingId
-  planForm.targetSpaceId = navResult.value.spaceId
+  planForm.parkingId = normalizeId(navResult.value.parkingId)
+  planForm.targetSpaceId = normalizeId(navResult.value.spaceId)
   planForm.preferredFloor = navResult.value.floor
   await loadGuidanceMeta(planForm.parkingId, planForm.preferredFloor, 'plan')
   if (!planForm.entryId && planMeta.entries.length) {
@@ -518,7 +633,7 @@ async function useNavigationResultForPlan() {
 }
 
 function selectCandidateSpace(spaceId) {
-  navForm.spaceId = spaceId
+  navForm.spaceId = normalizeId(spaceId)
   ElMessage.success('已切换候补车位，可重新获取导航')
 }
 
@@ -544,12 +659,101 @@ function formatDateTime(value) {
   if (!value) return '-'
   return String(value).replace('T', ' ')
 }
+
+async function applyRoutePreset() {
+  const queryParkingId = normalizeId(route.query.parkingId)
+  const queryParkingName = normalizeText(route.query.parkingName)
+  const querySpaceId = normalizeId(route.query.spaceId)
+  const querySpaceNumber = normalizeText(route.query.spaceNumber)
+
+  routePresetSpace.value = null
+
+  await ensureParkings()
+  const resolvedParkingId = queryParkingId || findParkingByName(queryParkingName)?.id
+
+  if (!resolvedParkingId) {
+    return
+  }
+
+  const resolvedSpace = await resolveSpaceByQuery(resolvedParkingId, querySpaceId, querySpaceNumber)
+  routePresetSpace.value = resolvedSpace
+  activeTab.value = 'navigation'
+  navForm.parkingId = resolvedParkingId
+  navForm.spaceId = resolvedSpace?.id || querySpaceId || undefined
+  planForm.parkingId = resolvedParkingId
+  planForm.targetSpaceId = resolvedSpace?.id || querySpaceId || undefined
+  await Promise.all([
+    loadGuidanceMeta(navForm.parkingId, navForm.preferredFloor, 'nav'),
+    loadGuidanceMeta(planForm.parkingId, planForm.preferredFloor, 'plan')
+  ])
+}
+
+onMounted(() => {
+  applyRoutePreset()
+})
+
+watch(
+  () => route.query,
+  () => {
+    applyRoutePreset()
+  }
+)
 </script>
 
 <style scoped>
 .guidance-page {
   padding: var(--space-6);
 }
+
+.owner-guidance-intro {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.16), transparent 34%),
+    rgba(15, 23, 42, 0.76);
+}
+
+.intro-eyebrow {
+  margin: 0 0 8px;
+  color: rgba(148, 163, 184, 0.84);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.intro-title {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.intro-subtitle {
+  margin: 10px 0 0;
+  color: rgba(226, 232, 240, 0.74);
+  line-height: 1.7;
+}
+
+.intro-chip {
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.56);
+  color: var(--text-primary);
+}
+
+.intro-chip span {
+  color: rgba(148, 163, 184, 0.84);
+  font-size: 12px;
+}
+
 .page-card {
   border-radius: var(--radius-xl);
 }
@@ -612,5 +816,11 @@ function formatDateTime(value) {
 }
 .advanced-block {
   margin-bottom: 18px;
+}
+
+@media (max-width: 768px) {
+  .owner-guidance-intro {
+    flex-direction: column;
+  }
 }
 </style>

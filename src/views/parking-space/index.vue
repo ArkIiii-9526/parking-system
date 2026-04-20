@@ -16,9 +16,13 @@
           <el-icon><Plus /></el-icon>
           <span>新增车位</span>
         </button>
-        <button class="action-btn secondary" v-permission="'space:add'" @click="handleBatchAdd">
+        <button class="action-btn secondary" v-permission="'space:add'" @click="aiImportVisible = true">
           <el-icon><Collection /></el-icon>
-          <span>批量添加</span>
+          <span>AI导入</span>
+        </button>
+        <button class="action-btn danger" v-permission="'space:delete'" @click="handleClearByParking" :disabled="!filterForm.parkingId">
+          <el-icon><Delete /></el-icon>
+          <span>清空当前停车场</span>
         </button>
         <button class="action-btn danger" v-permission="'space:delete'" @click="handleBatchDelete" :disabled="selectedSpaceIds.length === 0">
           <el-icon><Delete /></el-icon>
@@ -75,6 +79,48 @@
       </div>
     </div>
 
+    <div v-if="filterForm.parkingId" class="ai-task-banner" :class="hasAiTask(aiImportTask) ? getAiTaskBannerClass(aiImportTask.status) : 'empty'">
+      <div class="ai-task-header">
+        <div>
+          <div class="ai-task-title">AI 车位解析任务</div>
+          <div v-if="hasAiTask(aiImportTask)" class="ai-task-subtitle">
+            {{ getAiTaskStatusText(aiImportTask.status) }}
+            <span v-if="aiImportTask.stage"> · {{ getAiTaskStageText(aiImportTask.stage) }}</span>
+          </div>
+          <div v-else class="ai-task-subtitle">无任务</div>
+        </div>
+        <button class="ai-task-refresh" @click="refreshAiImportTask" :disabled="aiTaskLoading">
+          {{ aiTaskLoading ? '刷新中...' : '刷新状态' }}
+        </button>
+      </div>
+
+      <div v-if="shouldShowAiTaskProgress(aiImportTask)" class="ai-task-progress-track">
+        <div class="ai-task-progress-bar" :style="{ width: `${aiImportTask.progressPercent || 0}%` }"></div>
+      </div>
+
+      <div v-if="hasAiTask(aiImportTask)" class="ai-task-meta">
+        <span>进度：{{ aiImportTask.progressPercent || 0 }}%</span>
+        <span v-if="aiImportTask.updatedTime">状态更新时间：{{ formatTaskTime(aiImportTask.updatedTime) }}</span>
+        <span v-if="aiTaskFetchedAt">刷新时间：{{ formatTaskTime(aiTaskFetchedAt) }}</span>
+        <span v-if="aiImportTask.result?.importedSpaces != null">车位：{{ aiImportTask.result.importedSpaces }}</span>
+        <span v-if="aiImportTask.result?.importedFloors != null">楼层：{{ aiImportTask.result.importedFloors }}</span>
+        <span v-if="aiImportTask.result?.importedSections != null">分区：{{ aiImportTask.result.importedSections }}</span>
+      </div>
+
+      <div class="ai-task-message">
+        {{ hasAiTask(aiImportTask) ? (aiImportTask.message || '任务处理中') : '当前停车场暂无 AI 解析任务，点击上方“AI导入”即可创建后台解析任务。' }}
+      </div>
+
+      <div v-if="hasAiTask(aiImportTask) && aiImportTask.status === 'FAILED' && aiImportTask.failureCategory" class="ai-task-failure">
+        <div class="ai-task-failure-title">{{ getAiTaskFailureSummary(aiImportTask) }}</div>
+        <div v-if="aiImportTask.failureSuggestion" class="ai-task-failure-tip">{{ aiImportTask.failureSuggestion }}</div>
+      </div>
+
+      <ul v-if="hasAiTask(aiImportTask) && aiImportTask.warnings?.length" class="ai-task-warnings">
+        <li v-for="warning in aiImportTask.warnings" :key="warning">{{ warning }}</li>
+      </ul>
+    </div>
+
     <!-- 筛选栏 -->
     <div class="filter-card">
       <div class="filter-row">
@@ -91,20 +137,6 @@
               <el-icon><MapLocation /></el-icon>
               <el-input v-model="filterForm.area" placeholder="输入区域" clearable @keyup.enter="handleSearch" />
             </div>
-          </div>
-          <div class="filter-item">
-            <label>状态</label>
-            <el-select v-model="filterForm.status" placeholder="选择状态" clearable>
-              <el-option label="空闲" :value="1">
-                <span class="status-dot available"></span> 空闲
-              </el-option>
-              <el-option label="占用" :value="2">
-                <span class="status-dot occupied"></span> 占用
-              </el-option>
-              <el-option label="已预约" :value="3">
-                <span class="status-dot reserved"></span> 已预约
-              </el-option>
-            </el-select>
           </div>
         </div>
         <div class="filter-actions">
@@ -145,7 +177,7 @@
               style="margin-right: 8px;"
             />
             <el-icon class="header-icon"><Location /></el-icon>
-            <span class="space-code">{{ space.spaceCode || space.spaceNumber || space.code || space.name || '未知车位' }}</span>
+            <span class="space-code">{{ getSpaceCode(space) }}</span>
           </div>
           <div class="space-type-badge" :class="getTypeClass(space.spaceType)">
             {{ getTypeText(space.spaceType) }}
@@ -164,22 +196,22 @@
         <div class="space-info">
           <div class="info-item">
             <el-icon><OfficeBuilding /></el-icon>
-            <span>{{ space.floor || space.level || '未知楼层' }}</span>
+            <span>{{ formatFloorLabel(space.floor ?? space.level) }}</span>
           </div>
           <div class="info-item">
             <el-icon><MapLocation /></el-icon>
-            <span>{{ space.area || space.zone || space.region || '未知区域' }}</span>
+            <span>{{ getSpaceArea(space) }}</span>
           </div>
         </div>
 
         <div class="space-actions">
-          <button class="action-btn-small" v-permission="'space:edit'" @click="handleEdit(space)" title="编辑">
+          <button class="action-btn-small" v-permission="'space:edit'" @click.stop="handleEdit(space)" title="编辑">
             <el-icon><Edit /></el-icon>
           </button>
           <button
             v-if="space.status === 1"
             class="action-btn-small warning"
-            @click="handleReserve(space)"
+            @click.stop="handleReserve(space)"
             title="预约"
           >
             <el-icon><Timer /></el-icon>
@@ -188,12 +220,12 @@
             v-if="space.status === 3"
             class="action-btn-small success"
             v-permission="'space:edit'"
-            @click="handleRelease(space)"
+            @click.stop="handleRelease(space)"
             title="释放"
           >
             <el-icon><Unlock /></el-icon>
           </button>
-          <button class="action-btn-small danger" v-permission="'space:delete'" @click="handleDelete(space)" title="删除">
+          <button class="action-btn-small danger" v-permission="'space:delete'" @click.stop="handleDelete(space)" title="删除">
             <el-icon><Delete /></el-icon>
           </button>
         </div>
@@ -245,7 +277,7 @@
             <el-input v-model="formData.spaceCode" placeholder="如：A-001" />
           </el-form-item>
           <el-form-item label="楼层" prop="floor" style="flex: 1">
-            <el-input v-model="formData.floor" placeholder="如：1F" />
+            <el-input v-model="formData.floor" placeholder="如：1 或 B1" />
           </el-form-item>
         </div>
 
@@ -286,72 +318,31 @@
         </div>
       </template>
     </el-dialog>
-    <!-- 批量添加对话框 -->
-    <el-dialog
-      v-model="batchDialogVisible"
-      title="批量添加停车位"
-      width="520px"
-      :close-on-click-modal="false"
-      class="glass-dialog"
-    >
-      <el-form ref="batchFormRef" :model="batchForm" :rules="batchFormRules" label-width="100px" class="space-form">
-        <el-form-item label="停车场" prop="parkingId">
-          <el-select v-model="batchForm.parkingId" placeholder="选择停车场" style="width: 100%" disabled>
-            <el-option v-for="p in parkingList" :key="p.id" :label="p.name" :value="p.id" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="编号前缀" prop="prefix">
-          <el-input v-model="batchForm.prefix" placeholder="如：A-" />
-        </el-form-item>
-
-        <div class="form-row">
-          <el-form-item label="起始编号" prop="startNum" style="flex: 1">
-            <el-input-number v-model="batchForm.startNum" :min="1" :max="999" style="width: 100%" />
-          </el-form-item>
-          <el-form-item label="结束编号" prop="endNum" style="flex: 1">
-            <el-input-number v-model="batchForm.endNum" :min="1" :max="999" style="width: 100%" />
-          </el-form-item>
-        </div>
-
-        <div class="form-row">
-          <el-form-item label="楼层" prop="floor" style="flex: 1">
-            <el-input v-model="batchForm.floor" placeholder="如：1F" />
-          </el-form-item>
-          <el-form-item label="区域" prop="area" style="flex: 1">
-            <el-input v-model="batchForm.area" placeholder="如：A区" />
-          </el-form-item>
-        </div>
-
-        <el-form-item label="车位类型" prop="spaceType">
-          <el-select v-model="batchForm.spaceType" placeholder="选择类型" style="width: 100%">
-            <el-option label="普通车位" :value="1" />
-            <el-option label="VIP车位" :value="2" />
-            <el-option label="充电车位" :value="3" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <button class="dialog-btn" @click="batchDialogVisible = false">取消</button>
-          <button class="dialog-btn primary" @click="submitBatchAdd" :disabled="submitLoading">
-            <span v-if="!submitLoading">批量创建</span>
-            <span v-else class="loading-text">
-              <span class="loading-spinner"></span>
-              处理中...
-            </span>
-          </button>
-        </div>
-      </template>
-    </el-dialog>
+    <AiImportDialog
+      v-model="aiImportVisible"
+      :parking-list="parkingList"
+      :initial-parking-id="filterForm.parkingId"
+      @submitted="handleAiImportSubmitted"
+      @success="handleAiImportSuccess"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getParkingSpacePage, createParkingSpace, updateParkingSpace, deleteParkingSpace, reserveSpace, releaseSpace, getParkingSpacesByParking } from '@/api/parkingSpace'
+import AiImportDialog from './components/AiImportDialog.vue'
+import {
+  getParkingSpacePage,
+  createParkingSpace,
+  updateParkingSpace,
+  deleteParkingSpace,
+  reserveSpace,
+  releaseSpace,
+  getParkingSpacesByParking,
+  clearParkingSpacesByParking,
+  getLatestParkingSpaceAiImportTask
+} from '@/api/parkingSpace'
 import { getParkingPage } from '@/api/parking'
 
 const loading = ref(false)
@@ -360,23 +351,10 @@ const dialogVisible = ref(false)
 const dialogType = ref('add')
 const formRef = ref(null)
 const animated = ref(false)
-
-const batchDialogVisible = ref(false)
-const batchFormRef = ref(null)
-const batchForm = reactive({
-  parkingId: null,
-  prefix: 'A-',
-  startNum: 1,
-  endNum: 10,
-  floor: '1F',
-  area: 'A区',
-  spaceType: 1
-})
-const batchFormRules = {
-  prefix: [{ required: true, message: '请输入编号前缀', trigger: 'blur' }],
-  floor: [{ required: true, message: '请输入楼层', trigger: 'blur' }],
-  area: [{ required: true, message: '请输入区域', trigger: 'blur' }]
-}
+const aiImportVisible = ref(false)
+const aiImportTask = ref(null)
+const aiTaskLoading = ref(false)
+const aiTaskFetchedAt = ref(null)
 
 const tableData = ref([])
 const parkingList = ref([])
@@ -408,14 +386,114 @@ const formData = reactive({
   floor: '',
   area: '',
   spaceType: 1,
-  status: 1
+  status: 1,
+  isReservable: 1,
+  distanceToEntrance: null,
+  distanceToExit: null,
+  guidancePriority: null,
+  navigationHint: '',
+  reservationTime: null,
+  currentCarNo: '',
+  remark: ''
 })
 
 const formRules = {
   parkingId: [{ required: true, message: '请选择停车场', trigger: 'change' }],
   spaceCode: [{ required: true, message: '请输入车位编号', trigger: 'blur' }],
-  floor: [{ required: true, message: '请输入楼层', trigger: 'blur' }],
+  floor: [{ required: true, message: '请输入楼层，如 1 或 B1', trigger: 'blur' }],
   area: [{ required: true, message: '请输入区域', trigger: 'blur' }]
+}
+
+function getSpaceCode(space) {
+  return space?.spaceCode || space?.spaceNumber || space?.code || space?.name || '未知车位'
+}
+
+function getRawSpaceArea(space) {
+  return space?.area || space?.sectionArea || space?.zone || space?.region || ''
+}
+
+function getSpaceArea(space) {
+  return getRawSpaceArea(space) || '未知区域'
+}
+
+function parseFloorInput(value) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return value
+  }
+
+  const normalized = String(value).trim().toUpperCase()
+  if (!normalized) {
+    return null
+  }
+  if (/^B\d+$/.test(normalized)) {
+    return -Number(normalized.slice(1))
+  }
+  if (/^F\d+$/.test(normalized)) {
+    return Number(normalized.slice(1))
+  }
+  if (/^-?\d+$/.test(normalized)) {
+    return Number(normalized)
+  }
+
+  const compact = normalized.replace(/层/g, '').replace(/F/g, '').replace(/\s+/g, '')
+  if (/^B\d+$/.test(compact)) {
+    return -Number(compact.slice(1))
+  }
+  if (/^-?\d+$/.test(compact)) {
+    return Number(compact)
+  }
+  return null
+}
+
+function formatFloorLabel(value) {
+  const floor = parseFloorInput(value)
+  if (floor == null) return '未知楼层'
+  if (floor > 0) return `${floor}层`
+  if (floor === 0) return '地面层'
+  return `B${Math.abs(floor)}层`
+}
+
+function resetFormData(space = {}) {
+  Object.assign(formData, {
+    id: space.id ?? null,
+    parkingId: space.parkingId ?? filterForm.parkingId ?? null,
+    spaceCode: space.spaceCode || space.spaceNumber || '',
+    floor: space.floor != null ? String(space.floor) : '',
+    area: getRawSpaceArea(space),
+    spaceType: space.spaceType ?? 1,
+    status: space.status ?? 1,
+    isReservable: space.isReservable ?? 1,
+    distanceToEntrance: space.distanceToEntrance ?? null,
+    distanceToExit: space.distanceToExit ?? null,
+    guidancePriority: space.guidancePriority ?? null,
+    navigationHint: space.navigationHint || '',
+    reservationTime: space.reservationTime ?? null,
+    currentCarNo: space.currentCarNo || '',
+    remark: space.remark || ''
+  })
+}
+
+function buildSpacePayload(space) {
+  return {
+    id: space.id ?? null,
+    parkingId: space.parkingId,
+    spaceNumber: space.spaceNumber || space.spaceCode,
+    spaceType: space.spaceType ?? 1,
+    status: space.status ?? 1,
+    sectionArea: getRawSpaceArea(space),
+    floor: parseFloorInput(space.floor),
+    isReservable: space.isReservable ?? 1,
+    distanceToEntrance: space.distanceToEntrance,
+    distanceToExit: space.distanceToExit,
+    guidancePriority: space.guidancePriority,
+    navigationHint: space.navigationHint,
+    reservationTime: space.reservationTime,
+    currentCarNo: space.currentCarNo,
+    remark: space.remark
+  }
 }
 
 function getStatusClass(status) {
@@ -443,6 +521,60 @@ function calculatePercent(value) {
   return Math.round((value / spaceStats.total) * 100)
 }
 
+function getAiTaskStatusText(status) {
+  const map = {
+    QUEUED: '排队中',
+    RUNNING: '执行中',
+    SUCCEEDED: '已完成',
+    FAILED: '失败'
+  }
+  return map[status] || '未知状态'
+}
+
+function getAiTaskStageText(stage) {
+  const map = {
+    SUBMITTED: '任务已提交',
+    LOADING_FILES: '准备文件',
+    ANALYZING_IMAGES: '识别图纸',
+    VALIDATING_RESULT: '校验结果',
+    CLEANING_HISTORY: '清理历史残留数据',
+    PERSISTING_DATA: '写入数据',
+    COMPLETED: '导入完成',
+    FAILED: '导入失败'
+  }
+  return map[stage] || stage || '处理中'
+}
+
+function getAiTaskBannerClass(status) {
+  const map = {
+    QUEUED: 'queued',
+    RUNNING: 'running',
+    SUCCEEDED: 'succeeded',
+    FAILED: 'failed'
+  }
+  return map[status] || ''
+}
+
+function hasAiTask(task) {
+  return Boolean(task && task.taskId)
+}
+
+function shouldShowAiTaskProgress(task) {
+  return Boolean(task && ['QUEUED', 'RUNNING'].includes(task.status))
+}
+
+function getAiTaskFailureSummary(task) {
+  if (!task?.failureCategory) return ''
+  return task.failureCode ? `${task.failureCategory}（${task.failureCode}）` : task.failureCategory
+}
+
+function formatTaskTime(value) {
+  if (!value) return '--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`
+}
+
 async function loadParkingList() {
   try {
     const res = await getParkingPage({ pageNo: 1, pageSize: 100 })
@@ -454,9 +586,42 @@ async function loadParkingList() {
   }
 }
 
+async function loadLatestAiImportTask() {
+  if (!filterForm.parkingId) {
+    aiImportTask.value = null
+    aiTaskFetchedAt.value = null
+    return
+  }
+  aiTaskLoading.value = true
+  try {
+    const res = await getLatestParkingSpaceAiImportTask(filterForm.parkingId)
+    if (res.code === 200) {
+      aiImportTask.value = hasAiTask(res.data) ? res.data : null
+      aiTaskFetchedAt.value = new Date().toISOString()
+    }
+  } catch (error) {
+    console.error('加载 AI 导入任务失败:', error)
+  } finally {
+    aiTaskLoading.value = false
+  }
+}
+
+async function refreshAiImportTask() {
+  if (!filterForm.parkingId) return
+  await loadLatestAiImportTask()
+}
+
 async function loadData() {
   if (!filterForm.parkingId) {
     tableData.value = []
+    pagination.total = 0
+    selectedSpaceIds.value = []
+    Object.assign(spaceStats, {
+      total: 0,
+      available: 0,
+      occupied: 0,
+      reserved: 0
+    })
     return
   }
 
@@ -527,6 +692,7 @@ async function loadSpaceStats() {
 
 function handleParkingChange() {
   pagination.pageNo = 1
+  loadLatestAiImportTask()
   loadData()
 }
 
@@ -539,6 +705,7 @@ function handleReset() {
   filterForm.parkingId = null
   filterForm.area = ''
   filterForm.status = null
+  aiImportTask.value = null
   handleSearch()
 }
 
@@ -554,27 +721,19 @@ function handleCurrentChange(page) {
 
 function handleAdd() {
   dialogType.value = 'add'
-  Object.keys(formData).forEach(key => {
-    if (key === 'spaceType') {
-      formData[key] = 1
-    } else if (key === 'status') {
-      formData[key] = 1
-    } else {
-      formData[key] = null
-    }
-  })
+  resetFormData()
   dialogVisible.value = true
 }
 
 function handleEdit(row) {
   dialogType.value = 'edit'
-  Object.assign(formData, row)
+  resetFormData(row)
   dialogVisible.value = true
 }
 
 function handleDelete(row) {
   ElMessageBox.confirm(
-    `确定要删除车位 "${row.spaceCode || row.spaceNumber || row.code || row.name}" 吗？`,
+    `确定要删除车位 "${getSpaceCode(row)}" 吗？`,
     '确认删除',
     {
       confirmButtonText: '确定删除',
@@ -659,8 +818,17 @@ function handleBatchDelete() {
 
 async function handleReserve(row) {
   try {
-    await ElMessageBox.confirm(`确定要预约车位 "${row.spaceCode}" 吗？`, '确认预约', { type: 'info' })
-    const res = await reserveSpace(row.id, {})
+    const { value: carNo } = await ElMessageBox.prompt(
+      `请输入车位 "${getSpaceCode(row)}" 的预约车牌号`,
+      '确认预约',
+      {
+        confirmButtonText: '确认预约',
+        cancelButtonText: '取消',
+        inputValue: row.currentCarNo || '',
+        inputValidator: value => (value && value.trim() ? true : '请输入车牌号')
+      }
+    )
+    const res = await reserveSpace(row.id, { carNo: carNo.trim() })
     if (res.code === 200) {
       ElMessage.success('预约成功')
       loadData()
@@ -668,7 +836,7 @@ async function handleReserve(row) {
       ElMessage.error(res.msg || '预约失败')
     }
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close') {
       ElMessage.error('预约失败')
     }
   }
@@ -676,7 +844,7 @@ async function handleReserve(row) {
 
 async function handleRelease(row) {
   try {
-    await ElMessageBox.confirm(`确定要释放车位 "${row.spaceCode}" 吗？`, '确认释放', { type: 'info' })
+    await ElMessageBox.confirm(`确定要释放车位 "${getSpaceCode(row)}" 吗？`, '确认释放', { type: 'info' })
     const res = await releaseSpace(row.id)
     if (res.code === 200) {
       ElMessage.success('释放成功')
@@ -685,7 +853,7 @@ async function handleRelease(row) {
       ElMessage.error(res.msg || '释放失败')
     }
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close') {
       ElMessage.error('释放失败')
     }
   }
@@ -694,10 +862,15 @@ async function handleRelease(row) {
 async function handleSubmit() {
   try {
     await formRef.value.validate()
+    const payload = buildSpacePayload(formData)
+    if (payload.floor == null) {
+      ElMessage.warning('楼层请输入如 1、2 或 B1 这样的格式')
+      return
+    }
     submitLoading.value = true
 
     if (dialogType.value === 'add') {
-      const res = await createParkingSpace(formData)
+      const res = await createParkingSpace(payload)
       if (res.code === 200) {
         ElMessage.success('新增成功')
         dialogVisible.value = false
@@ -706,7 +879,7 @@ async function handleSubmit() {
         ElMessage.error(res.msg || '新增失败')
       }
     } else {
-      const res = await updateParkingSpace(formData)
+      const res = await updateParkingSpace(payload)
       if (res.code === 200) {
         ElMessage.success('更新成功')
         dialogVisible.value = false
@@ -722,67 +895,53 @@ async function handleSubmit() {
   }
 }
 
-function handleBatchAdd() {
-  if (!filterForm.parkingId) {
-    ElMessage.warning('请先在左侧筛选栏选择要操作的停车场')
-    return
+async function handleAiImportSuccess(result) {
+  if (result?.parkingId) {
+    filterForm.parkingId = result.parkingId
   }
-  batchForm.parkingId = filterForm.parkingId
-  batchDialogVisible.value = true
+  pagination.pageNo = 1
+  await loadLatestAiImportTask()
+  await loadData()
 }
 
-async function submitBatchAdd() {
+async function handleAiImportSubmitted(task) {
+  if (task?.parkingId) {
+    filterForm.parkingId = task.parkingId
+  }
+  aiImportTask.value = hasAiTask(task) ? task : null
+  aiTaskFetchedAt.value = new Date().toISOString()
+  pagination.pageNo = 1
+  await loadData()
+}
+
+async function handleClearByParking() {
+  if (!filterForm.parkingId) {
+    ElMessage.warning('请先选择停车场')
+    return
+  }
+
+  const parkingName = parkingList.value.find(item => item.id === filterForm.parkingId)?.name || '当前停车场'
   try {
-    await batchFormRef.value.validate()
-    if (batchForm.startNum > batchForm.endNum) {
-      ElMessage.warning('起始编号不能大于结束编号')
-      return
-    }
-    const count = batchForm.endNum - batchForm.startNum + 1
-    if (count > 100) {
-      ElMessage.warning('单次最多批量添加 100 个车位')
-      return
-    }
-
-    submitLoading.value = true
-    let successCount = 0
-    let failCount = 0
-
-    // Sequential creation for stability, or Promise.all if the backend supports high concurrency
-    const promises = []
-    for (let i = batchForm.startNum; i <= batchForm.endNum; i++) {
-      const code = `${batchForm.prefix}${i.toString().padStart(3, '0')}`
-      const payload = {
-        parkingId: batchForm.parkingId,
-        spaceCode: code,
-        floor: batchForm.floor,
-        area: batchForm.area,
-        spaceType: batchForm.spaceType,
-        status: 1
+    await ElMessageBox.confirm(
+      `确定要清空“${parkingName}”下的所有车位和分区吗？此操作不可恢复。`,
+      '确认清空',
+      {
+        confirmButtonText: '确定清空',
+        cancelButtonText: '取消',
+        type: 'warning'
       }
-      promises.push(createParkingSpace(payload))
-    }
-
-    const results = await Promise.allSettled(promises)
-    results.forEach(res => {
-      if (res.status === 'fulfilled' && res.value.code === 200) {
-        successCount++
-      } else {
-        failCount++
-      }
-    })
-
-    if (failCount === 0) {
-      ElMessage.success(`成功批量创建 ${successCount} 个车位`)
-      batchDialogVisible.value = false
+    )
+    const res = await clearParkingSpacesByParking(filterForm.parkingId)
+    if (res.code === 200) {
+      ElMessage.success(`已清空 ${res.data.deletedSpaces || 0} 个车位`)
+      await loadData()
     } else {
-      ElMessage.warning(`创建完成。成功: ${successCount}，失败: ${failCount}`)
+      ElMessage.error(res.msg || '清空失败')
     }
-    loadData()
   } catch (error) {
-    console.error('批量添加失败:', error)
-  } finally {
-    submitLoading.value = false
+    if (error !== 'cancel' && error !== 'close') {
+      console.error('清空停车场车位失败:', error)
+    }
   }
 }
 
@@ -795,6 +954,9 @@ onMounted(() => {
   refreshTimer = setInterval(() => {
     if (filterForm.parkingId && !loading.value) {
       loadDataSilently()
+      if (aiImportTask.value && ['QUEUED', 'RUNNING'].includes(aiImportTask.value.status)) {
+        refreshAiImportTask()
+      }
     }
   }, 5000)
 })
@@ -881,13 +1043,15 @@ onUnmounted(() => {
       }
 
       &.secondary {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         box-shadow: none;
+        backdrop-filter: blur(16px);
 
         &:hover {
-          background: rgba(255, 255, 255, 0.15);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: var(--glass-bg-hover);
+          border-color: var(--glass-border-hover);
         }
       }
 
@@ -1011,6 +1175,121 @@ onUnmounted(() => {
       }
     }
   }
+}
+
+.ai-task-banner {
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-task-banner.queued {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.ai-task-banner.running {
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.ai-task-banner.succeeded {
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.ai-task-banner.failed {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.ai-task-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.ai-task-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+.ai-task-subtitle {
+  margin-top: 4px;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.ai-task-refresh {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.ai-task-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-task-progress-track {
+  height: 10px;
+  margin-bottom: var(--space-3);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ai-task-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary-500), var(--secondary-500));
+}
+
+.ai-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.ai-task-message {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.ai-task-failure {
+  margin-top: var(--space-3);
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+.ai-task-failure-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: #fca5a5;
+}
+
+.ai-task-failure-tip {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.ai-task-warnings {
+  margin: var(--space-3) 0 0;
+  padding-left: 18px;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--warning-400);
 }
 
 // 筛选栏

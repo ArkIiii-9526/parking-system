@@ -7,7 +7,6 @@
         </el-form-item>
         <el-form-item label="权限类型">
           <el-select v-model="filterForm.type" placeholder="请选择类型" clearable style="width: 150px">
-            <el-option label="目录" value="DIR" />
             <el-option label="菜单" value="MENU" />
             <el-option label="按钮" value="BUTTON" />
             <el-option label="接口" value="API" />
@@ -160,6 +159,7 @@ import {
   flattenPermissionTree,
   getPermissionTypeTag as getTypeTag,
   getPermissionTypeText as getTypeText,
+  normalizePermissionType,
   normalizePermission,
   normalizePermissionTree
 } from '@/utils/system-manage'
@@ -219,8 +219,9 @@ async function loadData() {
       pageSize: pagination.pageSize,
       name: filterForm.name
     }
-    if (filterForm.type) {
-      params.type = filterForm.type
+    const normalizedFilterType = filterForm.type ? normalizePermissionType(filterForm.type) : ''
+    if (normalizedFilterType) {
+      params.type = normalizedFilterType
     }
     const res = await getPermissionList(params)
     if (res.code === 200) {

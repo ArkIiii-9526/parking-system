@@ -4,7 +4,7 @@ export * from './login'
 // 停车场管理
 export * from './parking'
 
-// 车位分区管理
+// 车位分区查询
 export * from './parkingSection'
 
 // 停车位管理

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getUserInfo as getLocalUserInfo, setUserInfo, clearAll } from '@/utils/token'
 import { login, getUserInfo, logout } from '@/api/login'
-import { getUserPermissions } from '@/api/user'
+import { getUserDetail, getUserPermissions } from '@/api/user'
 import router, { resetRouter } from '@/router'
 import { resetAnalyticsExportFormatsCache } from '@/utils/analyticsExportFormats'
 
@@ -215,7 +215,8 @@ export const useUserStore = defineStore('user', () => {
   const permissionsLoaded = ref(Boolean(cachedUserInfo?.permissionsLoaded) && !shouldReloadMenus)
 
   const isLoggedIn = computed(() => !!token.value)
-  const userName = computed(() => user.value?.username || '')
+  const userName = computed(() => user.value?.nickname || user.value?.username || '')
+  const displayName = computed(() => user.value?.nickname || user.value?.username || '')
   const avatar = computed(() => user.value?.avatar || '')
 
   function getCurrentUserId() {
@@ -247,6 +248,16 @@ export const useUserStore = defineStore('user', () => {
     })
   }
 
+  function mergeCurrentUser(partialUser = {}) {
+    if (!partialUser || typeof partialUser !== 'object') return
+
+    user.value = {
+      ...(user.value || {}),
+      ...partialUser
+    }
+    persistUserState()
+  }
+
   async function getUserInfoAction() {
     try {
       const res = await getUserInfo()
@@ -254,8 +265,18 @@ export const useUserStore = defineStore('user', () => {
         const routeMatcher = buildRouteMatcher()
         permissionsLoaded.value = false
         let permissionsFromApi = []
+        let currentUserDetail = null
 
         if (getCurrentUserId() != null) {
+          try {
+            const detailRes = await getUserDetail(getCurrentUserId())
+            if (detailRes.code === 200 && detailRes.data) {
+              currentUserDetail = detailRes.data
+            }
+          } catch (detailError) {
+            console.warn('加载当前用户详情失败，将回退到缓存信息:', detailError)
+          }
+
           try {
             const permissionRes = await getUserPermissions(getCurrentUserId())
             if (permissionRes.code === 200 && Array.isArray(permissionRes.data)) {
@@ -270,13 +291,14 @@ export const useUserStore = defineStore('user', () => {
         // 检查res.data是否是数组（菜单数据直接返回数组的情况）
         if (Array.isArray(res.data)) {
           // 如果是数组，说明直接返回了菜单数据，需要转换格式
+          user.value = currentUserDetail || user.value
           menus.value = convertMenusToRouteFormat(res.data, '', routeMatcher) || []
           const permissionsFromMenus = extractPermissionCodes(res.data)
           permissions.value = [...new Set([...permissionsFromApi, ...permissionsFromMenus])]
           roles.value = [] // 确保没有混入角色
         } else {
           // 否则按正常格式处理
-          user.value = res.data.user || user.value
+          user.value = res.data.user || currentUserDetail || user.value
           roles.value = res.data.roles || []
           const fromMenus = extractPermissionCodes(res.data.menus || [])
           const fromApi = res.data.permissions || []
@@ -361,7 +383,9 @@ export const useUserStore = defineStore('user', () => {
     permissionsLoaded,
     isLoggedIn,
     userName,
+    displayName,
     avatar,
+    mergeCurrentUser,
     getUserInfo: getUserInfoAction,
     login: loginAction,
     logout: logoutAction,

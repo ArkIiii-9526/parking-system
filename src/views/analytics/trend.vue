@@ -178,7 +178,7 @@ import {
   ArrowUp,
   ArrowDown
 } from '@element-plus/icons-vue'
-import { getTrendAnalysis, exportTrend } from '@/api/analytics'
+import { getTrendAnalysis, getUtilizationAnalysis, exportTrend } from '@/api/analytics'
 import {
   createAreaGradient,
   createVerticalGradient,
@@ -193,6 +193,7 @@ import {
   exportBlobMimeType,
   exportFileExtension
 } from '@/utils/analyticsExportFormats'
+import { formatLocalDate, getRecentDateRange } from '@/utils/localDate'
 
 const loading = ref(false)
 const exportFormatOptions = ref([])
@@ -234,6 +235,142 @@ const trendData = ref({
   weeklyData: [],
   trendList: []
 })
+
+function normalizeNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
+}
+
+function buildTrendParams() {
+  if (dateRange.value && dateRange.value.length === 2) {
+    return {
+      startDate: dateRange.value[0],
+      endDate: dateRange.value[1],
+      parkingId: selectedParking.value || undefined,
+      periodType: 'day'
+    }
+  }
+
+  const { startDate, endDate } = getRecentDateRange(Number(timeRange.value) || 7)
+  return {
+    startDate,
+    endDate,
+    parkingId: selectedParking.value || undefined,
+    periodType: 'day'
+  }
+}
+
+function getSelectedTotalSpaces(utilizationList) {
+  const safeList = Array.isArray(utilizationList) ? utilizationList : []
+  if (selectedParking.value) {
+    const match = safeList.find(item => String(item.parkingId) === String(selectedParking.value))
+    return normalizeNumber(match?.totalSpaces)
+  }
+  return safeList.reduce((sum, item) => sum + normalizeNumber(item.totalSpaces), 0)
+}
+
+function getOverallOccupancy(utilizationList) {
+  const safeList = Array.isArray(utilizationList) ? utilizationList : []
+  if (selectedParking.value) {
+    const match = safeList.find(item => String(item.parkingId) === String(selectedParking.value))
+    return normalizeNumber(match?.occupancyRate)
+  }
+
+  const totalSpaces = safeList.reduce((sum, item) => sum + normalizeNumber(item.totalSpaces), 0)
+  const occupiedSpaces = safeList.reduce((sum, item) => sum + normalizeNumber(item.occupiedSpaces), 0)
+  if (totalSpaces <= 0) {
+    return 0
+  }
+  return Number(((occupiedSpaces / totalSpaces) * 100).toFixed(1))
+}
+
+function buildWeeklyData(dates, incomeValues, vehicleValues, occupancyValue) {
+  const buckets = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map(day => ({
+    day,
+    income: 0,
+    vehicles: 0,
+    count: 0
+  }))
+
+  dates.forEach((date, index) => {
+    const dayIndex = (new Date(date).getDay() + 6) % 7
+    buckets[dayIndex].income += normalizeNumber(incomeValues[index])
+    buckets[dayIndex].vehicles += normalizeNumber(vehicleValues[index])
+    buckets[dayIndex].count += 1
+  })
+
+  const maxIncome = Math.max(...buckets.map(item => item.income), 1)
+  const maxVehicles = Math.max(...buckets.map(item => item.vehicles), 1)
+
+  return buckets.map(item => ({
+    day: item.day,
+    value: item.count > 0
+      ? Number((
+          (item.income / maxIncome) * 45 +
+          (item.vehicles / maxVehicles) * 35 +
+          (occupancyValue / 100) * 20
+        ).toFixed(1))
+      : 0
+  }))
+}
+
+function buildHourlyData(occupancyValue) {
+  return Array.from({ length: 24 }, (_, hour) => ({
+    hour: `${String(hour).padStart(2, '0')}:00`,
+    occupancy: occupancyValue
+  }))
+}
+
+function buildTrendViewModel(rawTrend, utilizationList) {
+  const dates = Array.isArray(rawTrend?.dateLabels) ? rawTrend.dateLabels : []
+  const incomeValues = Array.isArray(rawTrend?.incomeTrend) ? rawTrend.incomeTrend : []
+  const entryValues = Array.isArray(rawTrend?.entryCounts) ? rawTrend.entryCounts : []
+  const exitValues = Array.isArray(rawTrend?.exitCounts) ? rawTrend.exitCounts : []
+  const totalSpaces = getSelectedTotalSpaces(utilizationList)
+  const avgOccupancy = getOverallOccupancy(utilizationList)
+  const vehicleValues = dates.map((_, index) => normalizeNumber(entryValues[index]) + normalizeNumber(exitValues[index]))
+  const turnoverValues = dates.map((_, index) => {
+    if (totalSpaces <= 0) {
+      return 0
+    }
+    return Number((normalizeNumber(exitValues[index]) / totalSpaces).toFixed(2))
+  })
+
+  return {
+    totalIncome: incomeValues.reduce((sum, value) => sum + normalizeNumber(value), 0),
+    totalVehicles: vehicleValues.reduce((sum, value) => sum + value, 0),
+    avgOccupancy,
+    avgTurnover: turnoverValues.length
+      ? Number((turnoverValues.reduce((sum, value) => sum + value, 0) / turnoverValues.length).toFixed(2))
+      : 0,
+    incomeTrend: dates.map((date, index) => ({
+      date,
+      value: normalizeNumber(incomeValues[index])
+    })),
+    vehicleTrend: dates.map((date, index) => ({
+      date,
+      value: vehicleValues[index]
+    })),
+    occupancyTrend: dates.map(date => ({
+      date,
+      value: avgOccupancy
+    })),
+    turnoverTrend: dates.map((date, index) => ({
+      date,
+      value: turnoverValues[index]
+    })),
+    hourlyData: buildHourlyData(avgOccupancy),
+    weeklyData: buildWeeklyData(dates, incomeValues, vehicleValues, avgOccupancy),
+    trendList: dates.map((date, index) => ({
+      date,
+      income: normalizeNumber(incomeValues[index]),
+      vehicles: vehicleValues[index],
+      occupancy: avgOccupancy,
+      turnover: turnoverValues[index],
+      avgDuration: 0
+    }))
+  }
+}
 
 // 占用率颜色
 const getOccupancyColor = (percentage) => {
@@ -720,7 +857,8 @@ async function loadParkingList() {
     if (res.code === 200 && res.data) {
       parkingOptions.value = (res.data.records || []).map(p => ({
         label: p.name,
-        value: p.id
+        value: p.id,
+        totalSpaces: normalizeNumber(p.totalSpaces)
       }))
     }
   } catch (error) {
@@ -732,13 +870,16 @@ async function loadParkingList() {
 async function fetchTrendData() {
   loading.value = true
   try {
-    const params = {
-      days: timeRange.value,
-      parkingId: selectedParking.value || undefined
-    }
-    const res = await getTrendAnalysis(params)
-    if (res.code === 200) {
-      trendData.value = { ...trendData.value, ...res.data }
+    const params = buildTrendParams()
+    const [trendRes, utilizationRes] = await Promise.all([
+      getTrendAnalysis(params),
+      getUtilizationAnalysis()
+    ])
+    if (trendRes.code === 200) {
+      trendData.value = {
+        ...trendData.value,
+        ...buildTrendViewModel(trendRes.data, utilizationRes?.data || [])
+      }
       nextTick(() => {
         try {
           initComprehensiveChart()
@@ -780,10 +921,7 @@ function handleDateRangeChange() {
 // 导出数据
 async function handleExport() {
   try {
-    let payload = {
-      days: timeRange.value,
-      parkingId: selectedParking.value || undefined
-    }
+    let payload = buildTrendParams()
     payload = appendFormatToPayload(payload, exportFormat.value)
     const res = await exportTrend(payload)
     const raw = res?.data ?? res
@@ -792,7 +930,7 @@ async function handleExport() {
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     const ext = exportFileExtension(exportFormat.value)
-    link.download = `趋势分析_${timeRange.value}天_${new Date().toISOString().split('T')[0]}.${ext}`
+    link.download = `趋势分析_${timeRange.value}天_${formatLocalDate()}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {

@@ -71,22 +71,76 @@
       </el-collapse-item>
     </el-collapse>
 
-    <!-- 数据卡片网格 -->
-    <div class="parking-grid">
+    <!-- 停车场长条列表 -->
+    <div class="parking-list">
       <div
         v-for="(item, index) in tableData"
         :key="item.id"
-        class="parking-card"
+        class="parking-row-card"
         :class="{ 'animate-in': animated }"
         :style="{ animationDelay: `${index * 50}ms` }"
       >
-        <div class="card-glow"></div>
-        <div class="card-header">
-          <div class="status-badge" :class="item.status === 1 ? 'active' : 'inactive'">
-            <span class="status-dot"></span>
-            {{ item.status === 1 ? '运营中' : '已停用' }}
+        <div class="row-glow"></div>
+
+        <div class="row-main">
+          <div class="row-title-group">
+            <div class="status-badge" :class="item.status === 1 ? 'active' : 'inactive'">
+              <span class="status-dot"></span>
+              {{ item.status === 1 ? '运营中' : '已停用' }}
+            </div>
+            <h3 class="parking-name">{{ item.name }}</h3>
           </div>
-          <div class="card-actions">
+
+          <div class="row-meta">
+            <div class="meta-item address">
+              <span class="meta-label">地址</span>
+              <p class="meta-value">
+                <el-icon><Location /></el-icon>
+                <span>{{ item.address }}</span>
+              </p>
+            </div>
+            <div class="meta-item coordinate">
+              <span class="meta-label">坐标</span>
+              <p class="meta-value coordinate-text">
+                <el-icon><MapLocation /></el-icon>
+                <span>{{ formatCoordinate(item.longitude, item.latitude) }}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-stats">
+          <div class="stats-overview">
+            <div class="stat-item">
+              <div class="stat-value">{{ item.totalSpaces }}</div>
+              <div class="stat-label">总车位</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ getUsedSpaces(item) }}</div>
+              <div class="stat-label">已占用</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" :class="item.availableSpaces > 0 ? 'available' : 'full'">
+                {{ item.availableSpaces }}
+              </div>
+              <div class="stat-label">空闲</div>
+            </div>
+            <div class="stat-item emphasis">
+              <div class="stat-value">{{ calculateUsageRate(item) }}%</div>
+              <div class="stat-label">使用率</div>
+            </div>
+          </div>
+
+          <div class="usage-track">
+            <div class="usage-bar">
+              <div class="usage-progress" :style="{ width: `${calculateUsageRate(item)}%` }" :class="getUsageClass(item)"></div>
+            </div>
+            <span class="usage-text">已用 {{ getUsedSpaces(item) }} / {{ item.totalSpaces }}</span>
+          </div>
+        </div>
+
+        <div class="row-actions">
+          <div class="icon-actions">
             <button class="action-icon-btn" v-permission="'parking:view'" @click="handleDetail(item)" title="查看详情">
               <el-icon><View /></el-icon>
             </button>
@@ -97,48 +151,17 @@
               <el-icon><Delete /></el-icon>
             </button>
           </div>
-        </div>
 
-        <div class="card-body">
-          <h3 class="parking-name">{{ item.name }}</h3>
-          <p class="parking-address">
-            <el-icon><Location /></el-icon>
-            <span>{{ item.address }}</span>
-          </p>
-
-          <div class="parking-stats">
-            <div class="stat-item">
-              <div class="stat-value">{{ item.totalSpaces }}</div>
-              <div class="stat-label">总车位</div>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-              <div class="stat-value" :class="item.availableSpaces > 0 ? 'available' : 'full'">
-                {{ item.availableSpaces }}
-              </div>
-              <div class="stat-label">空闲</div>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-              <div class="stat-value">{{ calculateUsageRate(item) }}%</div>
-              <div class="stat-label">使用率</div>
-            </div>
+          <div class="primary-actions">
+            <button class="billing-rule-btn" v-permission="'billing:rule:view'" @click="openBillingRuleDialog(item)">
+              绑定计费
+              <el-icon><Setting /></el-icon>
+            </button>
+            <button class="view-spaces-btn" @click="viewSpaces(item)">
+              查看车位
+              <el-icon><ArrowRight /></el-icon>
+            </button>
           </div>
-
-          <div class="usage-bar">
-            <div class="usage-progress" :style="{ width: `${calculateUsageRate(item)}%` }" :class="getUsageClass(item)"></div>
-          </div>
-        </div>
-
-        <div class="card-footer">
-          <div class="coordinate-info">
-            <el-icon><MapLocation /></el-icon>
-            <span>{{ formatCoordinate(item.longitude, item.latitude) }}</span>
-          </div>
-          <button class="view-spaces-btn" @click="viewSpaces(item)">
-            查看车位
-            <el-icon><ArrowRight /></el-icon>
-          </button>
         </div>
       </div>
     </div>
@@ -207,10 +230,9 @@
           </div>
         </el-form-item>
 
-        <el-form-item label="车位数量" prop="totalSpaces">
-          <div class="form-input-wrapper">
-            <el-icon><Grid /></el-icon>
-            <el-input-number v-model="formData.totalSpaces" :min="1" :max="10000" placeholder="请输入车位数量" style="width: 100%" />
+        <el-form-item label="车位识别">
+          <div class="ai-count-hint">
+            车位数量将由 AI 识别停车场平面图后自动同步，新增和编辑停车场时无需手动维护。
           </div>
         </el-form-item>
 
@@ -271,6 +293,18 @@
           </div>
         </div>
 
+        <div class="detail-section detail-actions-section">
+          <h4>快捷操作</h4>
+          <div class="detail-actions-row">
+            <button class="detail-rule-btn" v-permission="'billing:rule:view'" @click="openBillingRuleDialog(currentParking)">
+              绑定计费规则
+            </button>
+            <button class="detail-link-btn" @click="viewSpaces(currentParking)">
+              查看车位
+            </button>
+          </div>
+        </div>
+
         <div class="detail-section">
           <h4>车位统计</h4>
           <div class="detail-stats">
@@ -313,6 +347,11 @@
         </div>
       </div>
     </el-drawer>
+
+    <ParkingBillingRuleDialog
+      v-model="billingRuleDialogVisible"
+      :parking="selectedParkingForBilling"
+    />
   </div>
 </template>
 
@@ -321,6 +360,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AMapLoader from '@amap/amap-jsapi-loader'
+import ParkingBillingRuleDialog from './components/ParkingBillingRuleDialog.vue'
 import {
   getParkingPage,
   createParking,
@@ -341,6 +381,8 @@ const formRef = ref(null)
 const animated = ref(false)
 const currentParking = ref(null)
 const parkingApiStats = ref(null)
+const billingRuleDialogVisible = ref(false)
+const selectedParkingForBilling = ref(null)
 
 // 地图实例
 const mapInstance = ref(null)
@@ -364,15 +406,7 @@ const pagination = reactive({
   total: 0
 })
 
-const formData = reactive({
-  id: null,
-  name: '',
-  address: '',
-  longitude: null,
-  latitude: null,
-  totalSpaces: 100,
-  status: 1
-})
+const formData = reactive(createDefaultFormData())
 
 const formRules = {
   name: [
@@ -381,16 +415,45 @@ const formRules = {
   ],
   address: [
     { required: true, message: '请输入地址', trigger: 'blur' }
-  ],
-  totalSpaces: [
-    { required: true, message: '请输入车位数', trigger: 'blur' }
   ]
+}
+
+function createDefaultFormData() {
+  return {
+    id: null,
+    name: '',
+    address: '',
+    longitude: null,
+    latitude: null,
+    status: 1
+  }
+}
+
+function resetParkingFormData() {
+  Object.assign(formData, createDefaultFormData())
+}
+
+function buildParkingPayload() {
+  return {
+    ...(formData.id ? { id: formData.id } : {}),
+    name: formData.name?.trim(),
+    address: formData.address?.trim(),
+    longitude: formData.longitude,
+    latitude: formData.latitude,
+    status: formData.status
+  }
 }
 
 function calculateUsageRate(item) {
   if (!item.totalSpaces) return 0
-  const used = item.totalSpaces - (item.availableSpaces || 0)
+  const used = getUsedSpaces(item)
   return Math.round((used / item.totalSpaces) * 100)
+}
+
+function getUsedSpaces(item) {
+  const totalSpaces = Number(item?.totalSpaces) || 0
+  const availableSpaces = Number(item?.availableSpaces) || 0
+  return Math.max(totalSpaces - availableSpaces, 0)
 }
 
 function getUsageClass(item) {
@@ -410,6 +473,15 @@ function formatCoordinate(lng, lat) {
 
 function viewSpaces(item) {
   router.push(`/parking-space?parkingId=${item.id}`)
+}
+
+function openBillingRuleDialog(parking) {
+  if (!parking?.id) {
+    ElMessage.warning('未找到有效停车场')
+    return
+  }
+  selectedParkingForBilling.value = { ...parking }
+  billingRuleDialogVisible.value = true
 }
 
 async function fetchNearby() {
@@ -534,15 +606,7 @@ function initMap() {
 
 function handleAdd() {
   dialogType.value = 'add'
-  Object.keys(formData).forEach(key => {
-    if (key === 'totalSpaces') {
-      formData[key] = 100
-    } else if (key === 'status') {
-      formData[key] = 1
-    } else {
-      formData[key] = null
-    }
-  })
+  resetParkingFormData()
   dialogVisible.value = true
   nextTick(() => {
     initMap()
@@ -555,7 +619,6 @@ function applyParkingFormData(parking = {}) {
   formData.address = parking.address ?? ''
   formData.longitude = parking.longitude ?? null
   formData.latitude = parking.latitude ?? null
-  formData.totalSpaces = parking.totalSpaces ?? 100
   formData.status = parking.status ?? 1
 }
 
@@ -628,9 +691,10 @@ async function handleSubmit() {
   try {
     await formRef.value.validate()
     submitLoading.value = true
+    const payload = buildParkingPayload()
 
     if (dialogType.value === 'add') {
-      const res = await createParking(formData)
+      const res = await createParking(payload)
       if (res.code === 200) {
         ElMessage.success('新增成功')
         dialogVisible.value = false
@@ -639,7 +703,7 @@ async function handleSubmit() {
         ElMessage.error(res.msg || '新增失败')
       }
     } else {
-      const res = await updateParking(formData)
+      const res = await updateParking(payload)
       if (res.code === 200) {
         ElMessage.success('更新成功')
         dialogVisible.value = false
@@ -870,16 +934,20 @@ onMounted(() => {
   }
 }
 
-// 停车场卡片网格
-.parking-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: var(--space-5);
+// 停车场长条列表
+.parking-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
 
-.parking-card {
+.parking-row-card {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr) 220px;
+  gap: var(--space-5);
+  align-items: center;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
@@ -896,246 +964,317 @@ onMounted(() => {
   }
 
   &:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     border-color: var(--glass-border-hover);
     box-shadow: var(--shadow-xl);
 
-    .card-glow {
-      opacity: 0.1;
+    .row-glow {
+      opacity: 0.08;
     }
   }
 
-  .card-glow {
+  .row-glow {
     position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, var(--primary-500) 0%, transparent 70%);
+    inset: 0;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.12), transparent 32%, transparent 70%, rgba(45, 212, 191, 0.08));
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
   }
 
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-4);
+  .row-main,
+  .row-stats,
+  .row-actions {
     position: relative;
     z-index: 1;
-
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: var(--space-1) var(--space-3);
-      font-size: var(--text-xs);
-      font-weight: var(--font-medium);
-      border-radius: var(--radius-full);
-
-      &.active {
-        background: var(--secondary-surface);
-        color: var(--secondary-400);
-
-        .status-dot {
-          background: var(--secondary-500);
-          box-shadow: 0 0 8px var(--secondary-500);
-        }
-      }
-
-      &.inactive {
-        background: var(--neutral-surface);
-        color: var(--text-muted);
-
-        .status-dot {
-          background: var(--text-muted);
-        }
-      }
-
-      .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-      }
-    }
-
-    .card-actions {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-
-      .action-icon-btn {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--glass-bg);
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-md);
-        color: var(--text-tertiary);
-        cursor: pointer;
-        transition: all 0.3s ease;
-
-        &:hover {
-          background: var(--glass-bg-active);
-          border-color: var(--glass-border-hover);
-          color: var(--text-primary);
-        }
-
-        &.danger:hover {
-          background: var(--accent-surface);
-          border-color: color-mix(in srgb, var(--accent-500) 35%, transparent);
-          color: var(--accent-400);
-        }
-
-        .el-icon {
-          font-size: 14px;
-        }
-      }
-    }
   }
 
-  .card-body {
-    position: relative;
-    z-index: 1;
+  .row-main {
+    min-width: 0;
+  }
+
+  .row-title-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
 
     .parking-name {
+      margin: 0;
       font-family: var(--font-display);
-      font-size: var(--text-lg);
+      font-size: var(--text-xl);
       font-weight: var(--font-semibold);
       color: var(--text-primary);
-      margin-bottom: var(--space-2);
     }
+  }
 
-    .parking-address {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--text-sm);
-      color: var(--text-tertiary);
-      margin-bottom: var(--space-4);
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    border-radius: var(--radius-full);
 
-      .el-icon {
-        font-size: 14px;
-        color: var(--primary-400);
-      }
+    &.active {
+      background: var(--secondary-surface);
+      color: var(--secondary-400);
 
-      span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-
-    .parking-stats {
-      display: flex;
-      align-items: center;
-      gap: var(--space-4);
-      margin-bottom: var(--space-4);
-
-      .stat-item {
-        text-align: center;
-
-        .stat-value {
-          font-family: var(--font-display);
-          font-size: var(--text-2xl);
-          font-weight: var(--font-bold);
-          color: var(--text-primary);
-          line-height: 1.2;
-
-          &.available {
-            color: var(--secondary-400);
-          }
-
-          &.full {
-            color: var(--accent-400);
-          }
-        }
-
-        .stat-label {
-          font-size: var(--text-xs);
-          color: var(--text-muted);
-          margin-top: var(--space-1);
-        }
-      }
-
-      .stat-divider {
-        width: 1px;
-        height: 40px;
-        background: var(--glass-bg-active);
+      .status-dot {
+        background: var(--secondary-500);
+        box-shadow: 0 0 8px var(--secondary-500);
       }
     }
 
-    .usage-bar {
+    &.inactive {
+      background: var(--neutral-surface);
+      color: var(--text-muted);
+
+      .status-dot {
+        background: var(--text-muted);
+      }
+    }
+
+    .status-dot {
+      width: 6px;
       height: 6px;
-      background: var(--glass-bg-active);
-      border-radius: var(--radius-full);
-      overflow: hidden;
+      border-radius: 50%;
+    }
+  }
 
-      .usage-progress {
-        height: 100%;
-        border-radius: var(--radius-full);
-        transition: width 0.5s ease;
+  .row-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.85fr);
+    gap: var(--space-4);
 
-        &.normal {
-          background: linear-gradient(90deg, var(--secondary-500), var(--secondary-400));
+    .meta-item {
+      min-width: 0;
+      padding: var(--space-3) var(--space-4);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+
+      .meta-label {
+        display: block;
+        margin-bottom: var(--space-2);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        letter-spacing: 0.04em;
+      }
+
+      .meta-value {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-2);
+        margin: 0;
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        line-height: 1.6;
+
+        .el-icon {
+          flex-shrink: 0;
+          margin-top: 3px;
+          font-size: 14px;
+          color: var(--primary-400);
         }
 
-        &.warning {
-          background: linear-gradient(90deg, var(--warning-500), var(--warning-400));
+        span {
+          min-width: 0;
+          word-break: break-all;
         }
+      }
 
-        &.critical {
-          background: linear-gradient(90deg, var(--accent-500), var(--accent-400));
-        }
+      &.address .meta-value span {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
     }
   }
 
-  .card-footer {
+  .row-stats {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: var(--space-4);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--border-subtle);
-    position: relative;
-    z-index: 1;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
 
-    .coordinate-info {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
+  .stats-overview {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
 
-      .el-icon {
-        font-size: 12px;
+    .stat-item {
+      padding: var(--space-3);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      text-align: center;
+
+      &.emphasis {
+        background: rgba(99, 102, 241, 0.08);
+        border-color: rgba(99, 102, 241, 0.18);
+      }
+
+      .stat-value {
+        font-family: var(--font-display);
+        font-size: clamp(1.35rem, 2vw, 1.9rem);
+        font-weight: var(--font-bold);
+        color: var(--text-primary);
+        line-height: 1.15;
+
+        &.available {
+          color: var(--secondary-400);
+        }
+
+        &.full {
+          color: var(--accent-400);
+        }
+      }
+
+      .stat-label {
+        margin-top: var(--space-1);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
       }
     }
+  }
 
-    .view-spaces-btn {
+  .usage-track {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .usage-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--glass-bg-active);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+
+    .usage-progress {
+      height: 100%;
+      border-radius: var(--radius-full);
+      transition: width 0.5s ease;
+
+      &.normal {
+        background: linear-gradient(90deg, var(--secondary-500), var(--secondary-400));
+      }
+
+      &.warning {
+        background: linear-gradient(90deg, var(--warning-500), var(--warning-400));
+      }
+
+      &.critical {
+        background: linear-gradient(90deg, var(--accent-500), var(--accent-400));
+      }
+    }
+  }
+
+  .usage-text {
+    flex-shrink: 0;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+
+  .row-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-left: var(--space-1);
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .icon-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+
+    .action-icon-btn {
+      width: 34px;
+      height: 34px;
       display: flex;
       align-items: center;
-      gap: var(--space-1);
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      color: var(--primary-400);
-      background: none;
-      border: none;
+      justify-content: center;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      color: var(--text-tertiary);
       cursor: pointer;
       transition: all 0.3s ease;
 
       &:hover {
-        color: var(--primary-300);
-        gap: var(--space-2);
+        background: var(--glass-bg-active);
+        border-color: var(--glass-border-hover);
+        color: var(--text-primary);
+      }
+
+      &.danger:hover {
+        background: var(--accent-surface);
+        border-color: color-mix(in srgb, var(--accent-500) 35%, transparent);
+        color: var(--accent-400);
       }
 
       .el-icon {
-        font-size: 12px;
+        font-size: 14px;
       }
+    }
+  }
+
+  .primary-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .billing-rule-btn,
+  .view-spaces-btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 10px 16px;
+    border-radius: var(--radius-lg);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .billing-rule-btn {
+    background: rgba(15, 118, 110, 0.08);
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    color: #0f766e;
+
+    &:hover {
+      background: rgba(15, 118, 110, 0.14);
+      border-color: rgba(15, 118, 110, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .el-icon {
+      font-size: 13px;
+    }
+  }
+
+  .view-spaces-btn {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    color: var(--primary-300);
+
+    &:hover {
+      background: rgba(99, 102, 241, 0.14);
+      border-color: rgba(99, 102, 241, 0.32);
+      color: white;
+    }
+
+    .el-icon {
+      font-size: 13px;
     }
   }
 }
@@ -1265,6 +1404,17 @@ onMounted(() => {
 
 // 表单样式
 .parking-form {
+  .ai-count-hint {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: rgba(15, 118, 110, 0.08);
+    border: 1px dashed rgba(15, 118, 110, 0.24);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+
   .form-input-wrapper {
     display: flex;
     align-items: center;
@@ -1485,6 +1635,47 @@ onMounted(() => {
     }
   }
 
+  .detail-actions-section {
+    .detail-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+    }
+
+    .detail-rule-btn,
+    .detail-link-btn {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-lg);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .detail-rule-btn {
+      color: #0f766e;
+      background: rgba(15, 118, 110, 0.08);
+      border: 1px solid rgba(15, 118, 110, 0.18);
+
+      &:hover {
+        background: rgba(15, 118, 110, 0.14);
+        border-color: rgba(15, 118, 110, 0.28);
+      }
+    }
+
+    .detail-link-btn {
+      color: var(--text-secondary);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+
+      &:hover {
+        background: var(--glass-bg-active);
+        border-color: var(--glass-border-hover);
+        color: var(--text-primary);
+      }
+    }
+  }
+
   .detail-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1553,14 +1744,66 @@ onMounted(() => {
     padding: var(--space-4);
   }
 
-  .parking-grid {
+  .parking-row-card {
     grid-template-columns: 1fr;
+    gap: var(--space-4);
+
+    .row-meta,
+    .stats-overview,
+    .primary-actions {
+      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
+
+    .usage-track {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .row-actions {
+      padding-top: var(--space-4);
+      padding-left: 0;
+      border-top: 1px solid var(--border-subtle);
+      border-left: none;
+    }
+
+    .icon-actions {
+      justify-content: flex-start;
+    }
   }
 
   .pagination-wrapper {
     flex-direction: column;
     gap: var(--space-4);
     align-items: center;
+  }
+}
+
+@media (max-width: 1200px) {
+  .parking-row-card {
+    grid-template-columns: 1fr;
+
+    .row-actions {
+      padding-top: var(--space-4);
+      padding-left: 0;
+      border-top: 1px solid var(--border-subtle);
+      border-left: none;
+    }
+
+    .primary-actions {
+      flex-direction: row;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .parking-row-card {
+    .row-meta,
+    .stats-overview,
+    .primary-actions {
+      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
   }
 }
 </style>

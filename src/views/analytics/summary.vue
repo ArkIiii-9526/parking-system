@@ -194,7 +194,14 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { getSummaryAnalysis, exportSummary } from '@/api/analytics'
+import {
+  getSummaryAnalysis,
+  getTrendAnalysis,
+  getTurnoverAnalysis,
+  getIncomeAnalysis,
+  getUtilizationAnalysis,
+  exportSummary
+} from '@/api/analytics'
 import { getParkingPage } from '@/api/parking'
 import { createAreaGradient, getAnalyticsTheme, observeThemeChange } from '@/utils/analyticsTheme'
 import {
@@ -203,6 +210,7 @@ import {
   exportBlobMimeType,
   exportFileExtension
 } from '@/utils/analyticsExportFormats'
+import { enumerateLocalDates, formatLocalDate, getRecentDateRange } from '@/utils/localDate'
 
 const loading = ref(false)
 const incomeChartRef = ref(null)
@@ -220,7 +228,10 @@ const summaryData = reactive({
   totalIncome: 0,
   totalTransactions: 0,
   averageTransactionAmount: 0,
-  analysisPeriod: ''
+  analysisPeriod: '',
+  incomeTrend: [],
+  entryTrend: [],
+  exitTrend: []
 })
 
 const parkingStats = ref([])
@@ -235,13 +246,23 @@ const filterForm = reactive({
   endDate: ''
 })
 
-// 设置默认日期范围（最近30天）
+function buildQueryParams() {
+  const params = {}
+  if (filterForm.parkingId) params.parkingId = filterForm.parkingId
+  if (filterForm.startDate) params.startDate = filterForm.startDate
+  if (filterForm.endDate) params.endDate = filterForm.endDate
+  return params
+}
+
+function normalizeNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
+}
+
 function setDefaultDateRange() {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 30)
-  filterForm.endDate = end.toISOString().split('T')[0]
-  filterForm.startDate = start.toISOString().split('T')[0]
+  const { startDate, endDate } = getRecentDateRange(30)
+  filterForm.startDate = startDate
+  filterForm.endDate = endDate
 }
 
 const statCards = computed(() => [
@@ -287,28 +308,123 @@ async function loadParkingList() {
   try {
     const res = await getParkingPage({ pageNo: 1, pageSize: 1000 })
     if (res.code === 200) {
-      parkingList.value = res.data.records || []
+      parkingList.value = Array.isArray(res.data?.records) ? res.data.records : []
     }
   } catch (error) {
     console.error('加载停车场列表失败:', error)
   }
 }
 
+function buildTrendSeries(trendData) {
+  const dateLabels = Array.isArray(trendData?.dateLabels) ? trendData.dateLabels : []
+  const entryCounts = Array.isArray(trendData?.entryCounts) ? trendData.entryCounts : []
+  const exitCounts = Array.isArray(trendData?.exitCounts) ? trendData.exitCounts : []
+  const incomeTrend = Array.isArray(trendData?.incomeTrend) ? trendData.incomeTrend : []
+
+  return {
+    incomeTrend: dateLabels.map((date, index) => ({
+      date,
+      value: normalizeNumber(incomeTrend[index])
+    })),
+    entryTrend: dateLabels.map((date, index) => ({
+      date,
+      value: normalizeNumber(entryCounts[index])
+    })),
+    exitTrend: dateLabels.map((date, index) => ({
+      date,
+      value: normalizeNumber(exitCounts[index])
+    }))
+  }
+}
+
+function buildParkingStats(turnoverList, utilizationList, incomeData) {
+  const incomeByParking = incomeData?.incomeByParking || {}
+  const turnoverMap = new Map((turnoverList || []).map(item => [String(item.parkingId), item]))
+  const utilizationMap = new Map((utilizationList || []).map(item => [String(item.parkingId), item]))
+
+  const selectedParkings = filterForm.parkingId
+    ? parkingList.value.filter(item => String(item.id) === String(filterForm.parkingId))
+    : parkingList.value
+
+  return selectedParkings.map(parking => {
+    const key = String(parking.id)
+    const turnover = turnoverMap.get(key)
+    const utilization = utilizationMap.get(key)
+    const totalSpaces = normalizeNumber(parking.totalSpaces) || normalizeNumber(turnover?.totalSpaces)
+    const activeVehicles = normalizeNumber(utilization?.occupiedSpaces) || Math.max(totalSpaces - normalizeNumber(parking.availableSpaces), 0)
+    const utilizationRate = totalSpaces > 0
+      ? Number(((activeVehicles / totalSpaces) * 100).toFixed(2))
+      : normalizeNumber(utilization?.utilizationRate)
+
+    return {
+      parkingId: parking.id,
+      parkingName: parking.name,
+      totalSpaces,
+      activeVehicles,
+      totalEntries: normalizeNumber(turnover?.totalEntries),
+      totalExits: normalizeNumber(turnover?.totalExits),
+      totalIncome: normalizeNumber(incomeByParking[key] ?? incomeByParking[parking.id]),
+      utilizationRate
+    }
+  }).sort((left, right) => right.totalIncome - left.totalIncome || right.totalEntries - left.totalEntries)
+}
+
+function applySummaryData(summary, trend, turnover, utilization, income) {
+  const selectedParkings = filterForm.parkingId
+    ? parkingList.value.filter(item => String(item.id) === String(filterForm.parkingId))
+    : parkingList.value
+  const totalSpacesFromParking = selectedParkings.reduce((sum, item) => sum + normalizeNumber(item.totalSpaces), 0)
+  const utilizationMap = new Map((utilization || []).map(item => [String(item.parkingId), item]))
+  const activeVehiclesFromParking = selectedParkings.reduce((sum, item) => {
+    const utilizationItem = utilizationMap.get(String(item.id))
+    if (utilizationItem) {
+      return sum + normalizeNumber(utilizationItem.occupiedSpaces)
+    }
+    return sum + Math.max(normalizeNumber(item.totalSpaces) - normalizeNumber(item.availableSpaces), 0)
+  }, 0)
+  const trendSeries = buildTrendSeries(trend)
+
+  Object.assign(summaryData, {
+    totalParkings: selectedParkings.length || normalizeNumber(summary?.totalParkings),
+    totalSpaces: totalSpacesFromParking || normalizeNumber(summary?.totalSpaces),
+    totalEntries: normalizeNumber(summary?.totalEntries),
+    totalExits: normalizeNumber(summary?.totalExits),
+    activeVehicles: activeVehiclesFromParking || normalizeNumber(summary?.activeVehicles),
+    totalIncome: normalizeNumber(summary?.totalIncome),
+    totalTransactions: normalizeNumber(summary?.totalTransactions),
+    averageTransactionAmount: normalizeNumber(summary?.averageTransactionAmount),
+    analysisPeriod: summary?.analysisPeriod || `${filterForm.startDate} 至 ${filterForm.endDate}`,
+    ...trendSeries
+  })
+
+  parkingStats.value = buildParkingStats(turnover, utilization, income)
+}
+
 async function loadData() {
   loading.value = true
   try {
-    const params = {}
-    if (filterForm.parkingId) params.parkingId = filterForm.parkingId
-    if (filterForm.startDate) params.startDate = filterForm.startDate
-    if (filterForm.endDate) params.endDate = filterForm.endDate
-
-    const res = await getSummaryAnalysis(params)
-    if (res.code === 200) {
-      const data = res.data || {}
-      Object.assign(summaryData, data)
-      parkingStats.value = data.parkingStats || []
-      updateCharts()
+    const params = buildQueryParams()
+    const trendParams = {
+      ...params,
+      periodType: 'day'
     }
+
+    const [summaryRes, trendRes, turnoverRes, utilizationRes, incomeRes] = await Promise.all([
+      getSummaryAnalysis(params),
+      getTrendAnalysis(trendParams),
+      getTurnoverAnalysis(params),
+      getUtilizationAnalysis(),
+      getIncomeAnalysis(params)
+    ])
+
+    applySummaryData(
+      summaryRes?.data || {},
+      trendRes?.data || {},
+      turnoverRes?.data || [],
+      utilizationRes?.data || [],
+      incomeRes?.data || {}
+    )
+    updateCharts()
   } catch (error) {
     console.error('加载数据失败:', error)
     console.error('错误详情:', error.response?.data || error.message)
@@ -332,11 +448,7 @@ function handleReset() {
 
 async function handleExport() {
   try {
-    let data = {
-      startDate: filterForm.startDate,
-      endDate: filterForm.endDate,
-      parkingId: filterForm.parkingId
-    }
+    let data = buildQueryParams()
     data = appendFormatToPayload(data, exportFormat.value)
     const res = await exportSummary(data)
     const raw = res?.data ?? res
@@ -347,7 +459,7 @@ async function handleExport() {
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     const ext = exportFileExtension(exportFormat.value)
-    link.download = `运营汇总_${new Date().toISOString().split('T')[0]}.${ext}`
+    link.download = `运营汇总_${formatLocalDate()}.${ext}`
     link.click()
     ElMessage.success('导出成功')
   } catch (error) {
@@ -381,25 +493,24 @@ function updateCharts() {
   if (!incomeChart || !vehicleChart) return
   const theme = getAnalyticsTheme()
 
-  // 从API返回的数据中获取图表数据
-  const dates = summaryData.incomeTrend?.map(item => item.date) || []
-  const incomeData = summaryData.incomeTrend?.map(item => item.value) || []
-  const entryData = summaryData.entryTrend?.map(item => item.value) || []
-  const exitData = summaryData.exitTrend?.map(item => item.value) || []
+  const dates = summaryData.incomeTrend.map(item => item.date)
+  const incomeData = summaryData.incomeTrend.map(item => item.value)
+  const entryData = summaryData.entryTrend.map(item => item.value)
+  const exitData = summaryData.exitTrend.map(item => item.value)
 
-  // 如果没有数据，使用空数组
   if (dates.length === 0) {
-    const start = new Date(filterForm.startDate || new Date().setDate(new Date().getDate() - 30))
-    const end = new Date(filterForm.endDate || new Date())
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().split('T')[0])
+    const fallbackDates = enumerateLocalDates(
+      filterForm.startDate || getRecentDateRange(30).startDate,
+      filterForm.endDate || formatLocalDate()
+    )
+    fallbackDates.forEach(date => {
+      dates.push(date)
       incomeData.push(0)
       entryData.push(0)
       exitData.push(0)
-    }
+    })
   }
 
-  // 收入趋势图
   incomeChart.setOption({
     tooltip: {
       trigger: 'axis',
@@ -443,7 +554,6 @@ function updateCharts() {
     }]
   })
 
-  // 车辆进出趋势图
   vehicleChart.setOption({
     tooltip: {
       trigger: 'axis'
@@ -495,9 +605,9 @@ onMounted(async () => {
   const fmts = await loadAnalyticsExportFormats()
   exportFormatOptions.value = fmts
   exportFormat.value = fmts[0] || 'excel'
-  loadParkingList()
-  loadData()
+  await loadParkingList()
   initCharts()
+  await loadData()
   stopThemeObserver = observeThemeChange(updateCharts)
 })
 

@@ -7,14 +7,10 @@
           <span class="title-icon">
             <el-icon><MapLocation /></el-icon>
           </span>
-          车位分区管理
+          停车场分区
         </h1>
-        <p class="page-subtitle">管理停车场的分区信息及车位分布</p>
+        <p class="page-subtitle">分区由 AI 识别停车场平面图自动生成，此处仅提供查看与统计同步</p>
       </div>
-      <button class="add-btn" v-permission="'section:add'" @click="handleAdd">
-        <el-icon><Plus /></el-icon>
-        <span>新增分区</span>
-      </button>
     </div>
 
     <!-- 搜索筛选 -->
@@ -141,20 +137,14 @@
         </el-table-column>
         <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
         <el-table-column prop="sortOrder" label="排序" width="80" align="center" />
-        <el-table-column label="操作" width="200" fixed="right" align="center">
+        <el-table-column label="操作" width="120" fixed="right" align="center">
           <template #default="{ row }">
             <div class="action-btns">
               <button class="action-btn" v-permission="'section:view'" @click="handleDetail(row)" title="统计信息">
                 <el-icon><TrendCharts /></el-icon>
               </button>
-              <button class="action-btn" v-permission="'section:edit'" @click="handleEdit(row)" title="编辑">
-                <el-icon><Edit /></el-icon>
-              </button>
-              <button class="action-btn" v-permission="'section:edit'" @click="handleUpdateSpaceCount(row)" title="更新车位数">
+              <button class="action-btn" v-permission="'section:edit'" @click="handleSyncSpaceCount(row)" title="同步车位数">
                 <el-icon><Grid /></el-icon>
-              </button>
-              <button class="action-btn danger" v-permission="'section:delete'" @click="handleDelete(row)" title="删除">
-                <el-icon><Delete /></el-icon>
               </button>
             </div>
           </template>
@@ -167,7 +157,7 @@
           <el-icon><MapLocation /></el-icon>
         </div>
         <h3>暂无分区数据</h3>
-        <p>点击上方按钮添加第一个分区</p>
+        <p>请先在停车位管理中完成 AI 识别导入</p>
       </div>
 
       <!-- 分页 -->
@@ -186,74 +176,6 @@
         />
       </div>
     </div>
-
-    <!-- 新增/编辑对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogType === 'add' ? '新增分区' : '编辑分区'"
-      width="560px"
-      :close-on-click-modal="false"
-      class="glass-dialog"
-    >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" class="section-form">
-        <el-form-item label="所属停车场" prop="parkingId">
-          <el-select v-model="formData.parkingId" placeholder="选择停车场" style="width: 100%">
-            <el-option
-              v-for="item in parkingList"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="分区代码" prop="sectionCode">
-          <div class="form-input-wrapper">
-            <el-icon><Collection /></el-icon>
-            <el-input v-model="formData.sectionCode" placeholder="如：A、B、C" maxlength="10" />
-          </div>
-        </el-form-item>
-
-        <el-form-item label="分区名称" prop="sectionName">
-          <div class="form-input-wrapper">
-            <el-icon><MapLocation /></el-icon>
-            <el-input v-model="formData.sectionName" placeholder="如：A区、地下一层A区" maxlength="50" />
-          </div>
-        </el-form-item>
-
-        <el-form-item label="楼层" prop="floor">
-          <el-input-number v-model="formData.floor" :min="1" :max="100" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="排序" prop="sortOrder">
-          <el-input-number v-model="formData.sortOrder" :min="0" :max="999" style="width: 100%" />
-        </el-form-item>
-
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="formData.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入分区描述"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <button class="dialog-btn" @click="dialogVisible = false">取消</button>
-          <button class="dialog-btn primary" @click="handleSubmit" :disabled="submitLoading">
-            <span v-if="!submitLoading">{{ dialogType === 'add' ? '创建' : '保存' }}</span>
-            <span v-else class="loading-text">
-              <span class="loading-spinner"></span>
-              处理中...
-            </span>
-          </button>
-        </div>
-      </template>
-    </el-dialog>
 
     <!-- 统计信息抽屉 -->
     <el-drawer
@@ -342,48 +264,14 @@
       </div>
     </el-drawer>
 
-    <!-- 更新车位数对话框 -->
-    <el-dialog
-      v-model="spaceCountDialogVisible"
-      title="更新分区车位数量"
-      width="400px"
-      :close-on-click-modal="false"
-      class="glass-dialog"
-    >
-      <div v-if="currentSection" class="space-count-info">
-        <p class="info-text">
-          正在为 <strong>{{ currentSection.sectionName }}</strong> 更新车位数量
-        </p>
-      </div>
-      <el-form ref="spaceCountFormRef" :model="spaceCountForm" :rules="spaceCountRules" label-width="100px">
-        <el-form-item label="车位数量" prop="totalSpaces">
-          <el-input-number v-model="spaceCountForm.totalSpaces" :min="0" :max="10000" style="width: 100%" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <button class="dialog-btn" @click="spaceCountDialogVisible = false">取消</button>
-          <button class="dialog-btn primary" @click="handleSubmitSpaceCount" :disabled="submitLoading">
-            <span v-if="!submitLoading">更新</span>
-            <span v-else class="loading-text">
-              <span class="loading-spinner"></span>
-              处理中...
-            </span>
-          </button>
-        </div>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
   getParkingSectionPage,
-  createParkingSection,
-  updateParkingSection,
-  deleteParkingSection,
   getSectionStatistics,
   updateSectionSpaceCount
 } from '@/api/parkingSection'
@@ -391,12 +279,7 @@ import { getParkingPage } from '@/api/parking'
 
 const loading = ref(false)
 const submitLoading = ref(false)
-const dialogVisible = ref(false)
 const detailDrawerVisible = ref(false)
-const spaceCountDialogVisible = ref(false)
-const dialogType = ref('add')
-const formRef = ref(null)
-const spaceCountFormRef = ref(null)
 const currentSection = ref(null)
 const statistics = ref({})
 
@@ -415,43 +298,6 @@ const pagination = reactive({
   size: 10,
   total: 0
 })
-
-const formData = reactive({
-  id: null,
-  parkingId: null,
-  sectionCode: '',
-  sectionName: '',
-  floor: 1,
-  description: '',
-  sortOrder: 0
-})
-
-const spaceCountForm = reactive({
-  totalSpaces: 0
-})
-
-const formRules = {
-  parkingId: [
-    { required: true, message: '请选择停车场', trigger: 'change' }
-  ],
-  sectionCode: [
-    { required: true, message: '请输入分区代码', trigger: 'blur' },
-    { min: 1, max: 10, message: '代码长度在1-10个字符之间', trigger: 'blur' }
-  ],
-  sectionName: [
-    { required: true, message: '请输入分区名称', trigger: 'blur' },
-    { min: 1, max: 50, message: '名称长度在1-50个字符之间', trigger: 'blur' }
-  ],
-  floor: [
-    { required: true, message: '请输入楼层', trigger: 'blur' }
-  ]
-}
-
-const spaceCountRules = {
-  totalSpaces: [
-    { required: true, message: '请输入车位数量', trigger: 'blur' }
-  ]
-}
 
 async function loadParkingList() {
   try {
@@ -516,20 +362,6 @@ function handleCurrentChange(page) {
   loadData()
 }
 
-function handleAdd() {
-  dialogType.value = 'add'
-  Object.keys(formData).forEach(key => {
-    if (key === 'floor') {
-      formData[key] = 1
-    } else if (key === 'sortOrder') {
-      formData[key] = 0
-    } else {
-      formData[key] = null
-    }
-  })
-  dialogVisible.value = true
-}
-
 async function handleDetail(row) {
   currentSection.value = row
   try {
@@ -544,101 +376,19 @@ async function handleDetail(row) {
   }
 }
 
-function handleEdit(row) {
-  dialogType.value = 'edit'
-  Object.assign(formData, row)
-  dialogVisible.value = true
-}
-
-function handleUpdateSpaceCount(row) {
+async function handleSyncSpaceCount(row) {
   currentSection.value = row
-  spaceCountForm.totalSpaces = row.totalSpaces || 0
-  spaceCountDialogVisible.value = true
-}
-
-async function handleSubmitSpaceCount() {
   try {
-    await spaceCountFormRef.value.validate()
     submitLoading.value = true
-    const res = await updateSectionSpaceCount(currentSection.value.id, {
-      totalSpaces: spaceCountForm.totalSpaces
-    })
+    const res = await updateSectionSpaceCount(currentSection.value.id)
     if (res.code === 200) {
-      ElMessage.success('更新车位数量成功')
-      spaceCountDialogVisible.value = false
+      ElMessage.success('同步车位数量成功')
       loadData()
     } else {
-      ElMessage.error(res.message || '更新失败')
+      ElMessage.error(res.message || '同步失败')
     }
   } catch (error) {
-    console.error('提交失败:', error)
-  } finally {
-    submitLoading.value = false
-  }
-}
-
-function handleDelete(row) {
-  ElMessageBox.confirm(
-    `<div class="confirm-content">
-      <div class="confirm-icon warning">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-      </div>
-      <h4>确认删除</h4>
-      <p>确定要删除分区 "${row.sectionName}" 吗？<br>此操作不可恢复。</p>
-    </div>`,
-    '提示',
-    {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      dangerouslyUseHTMLString: true,
-      customClass: 'delete-confirm-dialog'
-    }
-  ).then(async () => {
-    try {
-      const res = await deleteParkingSection(row.id)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        loadData()
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
-    } catch (error) {
-      console.error('删除失败:', error)
-      ElMessage.error('删除失败')
-    }
-  })
-}
-
-async function handleSubmit() {
-  try {
-    await formRef.value.validate()
-    submitLoading.value = true
-
-    if (dialogType.value === 'add') {
-      const res = await createParkingSection(formData)
-      if (res.code === 200) {
-        ElMessage.success('新增成功')
-        dialogVisible.value = false
-        loadData()
-      } else {
-        ElMessage.error(res.message || '新增失败')
-      }
-    } else {
-      const res = await updateParkingSection(formData)
-      if (res.code === 200) {
-        ElMessage.success('更新成功')
-        dialogVisible.value = false
-        loadData()
-      } else {
-        ElMessage.error(res.message || '更新失败')
-      }
-    }
-  } catch (error) {
-    console.error('提交失败:', error)
+    console.error('同步失败:', error)
   } finally {
     submitLoading.value = false
   }
@@ -661,7 +411,6 @@ onMounted(() => {
 .page-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: var(--space-6);
 
   .header-content {
@@ -699,30 +448,6 @@ onMounted(() => {
     }
   }
 
-  .add-btn {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-5);
-    font-size: var(--text-sm);
-    font-weight: var(--font-semibold);
-    color: white;
-    background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
-    border: none;
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: var(--shadow-glow-primary);
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
-    }
-
-    .el-icon {
-      font-size: 16px;
-    }
-  }
 }
 
 // 筛选卡片

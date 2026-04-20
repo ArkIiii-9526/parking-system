@@ -125,12 +125,6 @@ test.describe('停车场管理测试', () => {
         await addressInput.fill('测试地址123号');
       }
       
-      // 填写总车位
-      const spacesInput = page.locator('.el-dialog input[type="number"]').first();
-      if (await spacesInput.count() > 0) {
-        await spacesInput.fill('100');
-      }
-      
       // 点击确定
       await page.click('.el-dialog__footer button:has-text("确定")');
       

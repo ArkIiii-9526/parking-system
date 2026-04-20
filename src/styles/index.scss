@@ -76,6 +76,20 @@
   --glass-bg-active: rgba(255, 255, 255, 1);
   --glass-border: rgba(0, 0, 0, 0.05);
   --glass-border-hover: rgba(0, 0, 0, 0.1);
+
+  --tags-view-bg: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+  --tags-view-item-bg: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  --tags-view-item-bg-hover: color-mix(in srgb, var(--primary-50) 70%, var(--bg-elevated) 30%);
+  --tags-view-item-border: rgba(148, 163, 184, 0.24);
+  --tags-view-item-border-hover: rgba(59, 130, 246, 0.18);
+  --tags-view-item-text: var(--text-tertiary);
+  --tags-view-item-text-hover: var(--text-primary);
+  --tags-view-item-active-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(16, 185, 129, 0.12));
+  --tags-view-item-active-bg-hover: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(16, 185, 129, 0.15));
+  --tags-view-item-active-border: rgba(59, 130, 246, 0.3);
+  --tags-view-item-active-border-hover: rgba(37, 99, 235, 0.42);
+  --tags-view-item-active-text: var(--primary-600);
+  --tags-view-item-active-dot-shadow: 0 0 10px rgba(59, 130, 246, 0.18);
   
   --gradient-aurora: linear-gradient(135deg, 
     rgba(59, 130, 246, 0.1) 0%, 
@@ -267,6 +281,20 @@ html.dark {
   --glass-bg-active: rgba(255, 255, 255, 0.15);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-border-hover: rgba(255, 255, 255, 0.2);
+
+  --tags-view-bg: rgba(15, 15, 26, 0.4);
+  --tags-view-item-bg: rgba(255, 255, 255, 0.03);
+  --tags-view-item-bg-hover: rgba(255, 255, 255, 0.08);
+  --tags-view-item-border: var(--glass-border);
+  --tags-view-item-border-hover: rgba(255, 255, 255, 0.2);
+  --tags-view-item-text: var(--text-tertiary);
+  --tags-view-item-text-hover: var(--text-primary);
+  --tags-view-item-active-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.15));
+  --tags-view-item-active-bg-hover: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.2));
+  --tags-view-item-active-border: rgba(99, 102, 241, 0.4);
+  --tags-view-item-active-border-hover: rgba(99, 102, 241, 0.6);
+  --tags-view-item-active-text: var(--primary-400);
+  --tags-view-item-active-dot-shadow: 0 0 8px var(--primary-400);
   
   // 渐变背景
   --gradient-aurora: linear-gradient(135deg, 

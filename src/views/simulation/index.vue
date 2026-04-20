@@ -8,6 +8,7 @@ import {
   Lightning,
   Plus,
   Refresh,
+  SwitchButton,
   Van
 } from '@element-plus/icons-vue'
 import {
@@ -18,6 +19,8 @@ import {
   resetSimulation,
   updateSimulationStatus
 } from '@/api/simulation'
+import { vehicleEntry, vehicleExit, getActiveEntry } from '@/api/vehicle'
+import { getAvailableSpaces } from '@/api/parkingSpace'
 
 const generating = ref(false)
 const showGenerateDialog = ref(false)
@@ -26,6 +29,20 @@ const selectedParking = ref('')
 const selectedSpace = ref(null)
 const parkingOptions = ref([])
 const currentParking = ref(null)
+const liveEntryLoading = ref(false)
+const liveExitLoading = ref(false)
+const liveEntriesLoading = ref(false)
+const liveAvailableSpaces = ref([])
+const liveActiveEntries = ref([])
+
+const liveEntryForm = ref({
+  carNo: '',
+  spaceId: null
+})
+
+const liveExitForm = ref({
+  carNo: ''
+})
 
 const overview = ref({
   totalRecords: 0,
@@ -55,6 +72,11 @@ const simulationStatus = computed(() => {
   }
   return { type: 'warning', text: '待机中' }
 })
+
+const liveLinkageStats = computed(() => ({
+  activeVehicles: liveActiveEntries.value.length,
+  availableSpaces: liveAvailableSpaces.value.length
+}))
 
 function unwrapData(response) {
   return response?.data || {}
@@ -95,6 +117,27 @@ function getSpaceStatusClass(status) {
     3: 'reserved'
   }
   return map[status] || 'available'
+}
+
+function getRealSpaceCode(space) {
+  return space?.spaceNumber || space?.spaceCode || space?.code || space?.name || ''
+}
+
+function getRealSpaceArea(space) {
+  return space?.sectionArea || space?.area || space?.zone || space?.region || ''
+}
+
+function getRealSpaceLabel(space) {
+  const code = getRealSpaceCode(space)
+  const area = getRealSpaceArea(space)
+  if (code && area) {
+    return `${code} (${area})`
+  }
+  return code || (space?.id ? `#${space.id}` : '未命名车位')
+}
+
+function getEntrySpaceLabel(record) {
+  return getRealSpaceCode(record) || (record?.spaceId ? `#${record.spaceId}` : '未分配')
 }
 
 function formatDateTime(value) {
@@ -167,7 +210,10 @@ async function fetchParkingDetail() {
 }
 
 async function handleParkingChange() {
-  await fetchParkingDetail()
+  await Promise.all([
+    fetchParkingDetail(),
+    loadLiveLinkageData()
+  ])
 }
 
 function ensureParkingSelected() {
@@ -185,6 +231,115 @@ function openGenerateDialog() {
     generateForm.value.parkingId = selectedParking.value || ''
   }
   showGenerateDialog.value = true
+}
+
+async function loadLiveLinkageData() {
+  if (!selectedParking.value) {
+    liveAvailableSpaces.value = []
+    liveActiveEntries.value = []
+    liveExitForm.value.carNo = ''
+    return
+  }
+
+  liveEntriesLoading.value = true
+  try {
+    const parkingId = Number(selectedParking.value)
+    const [spacesRes, entriesRes] = await Promise.all([
+      getAvailableSpaces(parkingId),
+      getActiveEntry({ parkingId })
+    ])
+
+    liveAvailableSpaces.value = spacesRes.code === 200 && Array.isArray(spacesRes.data)
+      ? spacesRes.data
+      : []
+    liveActiveEntries.value = entriesRes.code === 200 && Array.isArray(entriesRes.data)
+      ? entriesRes.data
+      : []
+
+    if (liveEntryForm.value.spaceId && !liveAvailableSpaces.value.some(space => space.id === liveEntryForm.value.spaceId)) {
+      liveEntryForm.value.spaceId = null
+    }
+    if (liveExitForm.value.carNo && !liveActiveEntries.value.some(entry => entry.carNo === liveExitForm.value.carNo)) {
+      liveExitForm.value.carNo = ''
+    }
+  } catch (error) {
+    console.error('加载真实联动数据失败:', error)
+    ElMessage.error('加载真实联动数据失败')
+  } finally {
+    liveEntriesLoading.value = false
+  }
+}
+
+async function handleLiveVehicleEntry() {
+  if (!selectedParking.value) {
+    ElMessage.warning('请先选择停车场')
+    return
+  }
+  if (!liveEntryForm.value.carNo?.trim()) {
+    ElMessage.warning('请输入车牌号')
+    return
+  }
+
+  liveEntryLoading.value = true
+  try {
+    const payload = {
+      parkingId: Number(selectedParking.value),
+      carNo: liveEntryForm.value.carNo.trim()
+    }
+    if (liveEntryForm.value.spaceId) {
+      payload.spaceId = liveEntryForm.value.spaceId
+    }
+
+    const res = await vehicleEntry(payload)
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || '模拟入场失败')
+      return
+    }
+
+    ElMessage.success(`模拟入场成功，车辆已进入车位 ${getEntrySpaceLabel(res.data)}`)
+    liveEntryForm.value = {
+      carNo: '',
+      spaceId: null
+    }
+    await loadLiveLinkageData()
+  } catch (error) {
+    console.error('真实联动模拟入场失败:', error)
+    ElMessage.error('模拟入场失败')
+  } finally {
+    liveEntryLoading.value = false
+  }
+}
+
+async function handleLiveVehicleExit() {
+  if (!selectedParking.value) {
+    ElMessage.warning('请先选择停车场')
+    return
+  }
+  if (!liveExitForm.value.carNo) {
+    ElMessage.warning('请选择要出场的车辆')
+    return
+  }
+
+  liveExitLoading.value = true
+  try {
+    const res = await vehicleExit({
+      parkingId: Number(selectedParking.value),
+      carNo: liveExitForm.value.carNo
+    })
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || '模拟出场失败')
+      return
+    }
+
+    ElMessage.success(`模拟出场成功，已释放车位 ${getEntrySpaceLabel(res.data)}`)
+    liveExitForm.value.carNo = ''
+    await loadLiveLinkageData()
+  } catch (error) {
+    console.error('真实联动模拟出场失败:', error)
+    ElMessage.error('模拟出场失败')
+  } finally {
+    liveExitLoading.value = false
+  }
 }
 
 async function handleGenerate() {
@@ -221,7 +376,10 @@ async function handleGenerate() {
     ElMessage.success(getOperationMessage(res, '模拟数据生成成功'))
     selectedParking.value = String(generateForm.value.parkingId)
     showGenerateDialog.value = false
-    await fetchParkingDetail()
+    await Promise.all([
+      fetchParkingDetail(),
+      loadLiveLinkageData()
+    ])
   } catch (error) {
     console.error('生成模拟数据失败:', error)
     ElMessage.error('生成模拟数据失败')
@@ -383,7 +541,7 @@ onMounted(async () => {
     <div class="page-header">
       <div class="header-main">
         <h2 class="page-title">模拟数据管理</h2>
-        <p class="subtitle">独立模拟沙箱，仅操作模拟专用数据，不再污染正式业务表</p>
+        <p class="subtitle">同页支持两种模式：真实业务联动模拟用于演示完整入场链路，独立模拟沙箱用于批量造数与状态推演。</p>
       </div>
       <div class="header-actions">
         <el-select
@@ -527,9 +685,120 @@ onMounted(async () => {
       </el-col>
     </el-row>
 
+    <el-row :gutter="16" class="overview-row">
+      <el-col :xs="24" :lg="10">
+        <div class="data-card">
+          <div class="card-header">
+            <div>
+              <h3>真实业务联动模拟</h3>
+              <div class="card-tip">这里会直接联动真实车辆入场、车位占用和出场释放流程。</div>
+            </div>
+            <el-tag type="success" size="small">真实车位</el-tag>
+          </div>
+
+          <div class="live-stats">
+            <div class="stat-item">
+              <div class="stat-value">{{ liveLinkageStats.activeVehicles }}</div>
+              <div class="stat-label">在场车辆</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ liveLinkageStats.availableSpaces }}</div>
+              <div class="stat-label">可用真实车位</div>
+            </div>
+          </div>
+
+          <div class="linkage-forms">
+            <div class="linkage-form-card">
+              <div class="mini-title">
+                <el-icon><Van /></el-icon>
+                <span>模拟入场</span>
+              </div>
+              <el-form label-position="top">
+                <el-form-item label="车牌号">
+                  <el-input v-model="liveEntryForm.carNo" placeholder="例如：粤A12345" />
+                </el-form-item>
+                <el-form-item label="指定车位（可选）">
+                  <el-select v-model="liveEntryForm.spaceId" clearable filterable placeholder="留空则自动分配真实车位">
+                    <el-option
+                      v-for="space in liveAvailableSpaces"
+                      :key="space.id"
+                      :label="getRealSpaceLabel(space)"
+                      :value="space.id"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-button type="primary" :loading="liveEntryLoading" :disabled="!selectedParking" @click="handleLiveVehicleEntry">
+                  执行真实入场
+                </el-button>
+              </el-form>
+            </div>
+
+            <div class="linkage-form-card">
+              <div class="mini-title">
+                <el-icon><SwitchButton /></el-icon>
+                <span>模拟出场</span>
+              </div>
+              <el-form label-position="top">
+                <el-form-item label="在场车辆">
+                  <el-select v-model="liveExitForm.carNo" clearable filterable placeholder="选择当前在场车辆">
+                    <el-option
+                      v-for="entry in liveActiveEntries"
+                      :key="entry.id"
+                      :label="`${entry.carNo} · ${getEntrySpaceLabel(entry)}`"
+                      :value="entry.carNo"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-button type="success" :loading="liveExitLoading" :disabled="!selectedParking" @click="handleLiveVehicleExit">
+                  执行真实出场
+                </el-button>
+              </el-form>
+            </div>
+          </div>
+        </div>
+      </el-col>
+
+      <el-col :xs="24" :lg="14">
+        <div class="data-card">
+          <div class="card-header">
+            <div>
+              <h3>当前在场车辆</h3>
+              <div class="card-tip">用于观察真实入场记录是否已经和具体车位编号建立绑定。</div>
+            </div>
+            <el-tag type="info" size="small">{{ selectedParking ? '按当前停车场筛选' : '请先选择停车场' }}</el-tag>
+          </div>
+
+          <el-table v-loading="liveEntriesLoading" :data="liveActiveEntries" stripe style="width: 100%">
+            <el-table-column prop="carNo" label="车牌号" min-width="140" />
+            <el-table-column label="真实车位编号" min-width="140">
+              <template #default="{ row }">
+                {{ getEntrySpaceLabel(row) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="entryTime" label="入场时间" min-width="180">
+              <template #default="{ row }">
+                {{ formatDateTime(row.entryTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default>
+                <el-tag type="warning" size="small">在场</el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-empty v-if="selectedParking && !liveEntriesLoading && liveActiveEntries.length === 0" description="当前停车场暂无在场车辆，可直接在左侧执行一次真实入场模拟" />
+          <el-empty v-else-if="!selectedParking" description="请选择停车场后查看真实业务联动数据" />
+        </div>
+      </el-col>
+    </el-row>
+
     <div class="data-card">
       <div class="card-header">
-        <h3>停车场模拟状态</h3>
+        <div>
+          <h3>停车场模拟状态</h3>
+          <div class="card-tip">以下区域仍是独立模拟沙箱，只影响模拟表，不会改动真实车辆进出记录。</div>
+        </div>
         <span class="parking-hint">{{ currentParking?.name || '请选择停车场' }}</span>
       </div>
 
@@ -792,6 +1061,42 @@ onMounted(async () => {
   font-size: 13px;
 }
 
+.card-tip {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.live-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.linkage-forms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.linkage-form-card {
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.mini-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .quick-actions-inner {
   display: flex;
   flex-direction: column;
@@ -933,6 +1238,11 @@ onMounted(async () => {
   .page-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .linkage-forms,
+  .live-stats {
+    grid-template-columns: 1fr;
   }
 }
 </style>
